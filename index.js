@@ -6,12 +6,15 @@ app.use(express.json());
 app.use(cors());
 require('dotenv').config();
 
-const db = mysql.createConnection({
+const db = mysql.createPool({
     host: process.env.dbhost,
     user: process.env.dbuser,
     password: process.env.dbpassword,
     database: process.env.database,
     port: 3306,
+    connectionLimit: 10,     // 限制最大連線數
+    waitForConnections: true,
+    queueLimit: 0
 });
 
 db.connect((err) => {
