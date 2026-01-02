@@ -6,25 +6,14 @@ app.use(express.json());
 app.use(cors());
 require('dotenv').config();
 
-const db = mysql.createPool({
+const db = mysql.createConnection({
     host: process.env.dbhost,
     user: process.env.dbuser,
     password: process.env.dbpassword,
     database: process.env.database,
     port: 3306,
-    waitForConnections: true,
-    connectionLimit: 10,     // 根據你的資料庫方案調整數量
-    queueLimit: 0,
-    connectTimeout: 10000    // 10秒連線超時
 });
-db.getConnection((err, connection) => {
-    if (err) {
-        console.error('資料庫連線池初始化失敗:', err);
-    } else {
-        console.log('連線池已就緒');
-        connection.release(); // 記得釋放回池中
-    }
-});
+
 db.connect((err) => {
     if (err) {
         console.error('Database connection failed:', err);
