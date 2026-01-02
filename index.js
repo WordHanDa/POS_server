@@ -12,8 +12,8 @@ const db = mysql.createPool({
     password: process.env.dbpassword,
     database: process.env.database,
     port: 3306,
-    connectionLimit: 10,     // 限制最大連線數
     waitForConnections: true,
+    connectionLimit: 5,
     queueLimit: 0
 });
 
