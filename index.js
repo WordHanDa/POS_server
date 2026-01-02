@@ -10,7 +10,7 @@ const db = mysql.createConnection({
     host: process.env.dbhost,
     user: process.env.dbuser,
     password: process.env.dbpassword,
-    database: "tourhub",
+    database: process.env.database,
     port: 3306,
 });
 
@@ -22,8 +22,8 @@ db.connect((err) => {
     console.log('Connected to MySQL database');
 });
 
-app.get('/USER', (req, res) => {
-    db.query("SELECT * FROM `USER`", (err, results) => {
+app.get('/ORDER', (req, res) => {
+    db.query("SELECT * FROM `ORDER`", (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
