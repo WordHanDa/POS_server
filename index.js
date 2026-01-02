@@ -16,13 +16,13 @@ const db = mysql.createPool({
     connectionLimit: 5,
     queueLimit: 0
 });
-
-db.connect((err) => {
+db.getConnection((err, connection) => {
     if (err) {
-        console.error('Database connection failed:', err);
-        return;
+        console.error('Database Pool connection failed:', err);
+    } else {
+        console.log('Connected to MySQL pool successfully');
+        connection.release(); // 務必釋放連線
     }
-    console.log('Connected to MySQL database');
 });
 
 app.get('/ORDER', (req, res) => {
