@@ -2050,4 +2050,6 @@ app.put('/updateSplitRecord', (req, res) => {
     }
 });
 
-module.exports = app;
+app.listen(3002, () => {
+    console.log('OK, server is running on port 3002');
+});
