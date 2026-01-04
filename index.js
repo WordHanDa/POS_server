@@ -250,6 +250,22 @@ app.put('/ORDER/:id', (req, res) => {
     });
 });
 
+app.put('/ORDER/settle/:id', (req, res) => {
+    const { id } = req.params;
+    // 將 settle 欄位設為 1
+    const sql = "UPDATE `ORDER` SET settle = 1 WHERE ORDER_ID = ?";
+
+    db.query(sql, [id], (err, results) => {
+        if (err) {
+            res.status(500).json({ error: err });
+        } else if (results.affectedRows === 0) {
+            res.status(404).json({ message: 'Order not found' });
+        } else {
+            res.json({ message: 'Order settled successfully' });
+        }
+    });
+});
+
 // 5. 刪除訂單
 app.delete('/ORDER/:id', (req, res) => {
     const { id } = req.params;
