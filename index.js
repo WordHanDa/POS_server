@@ -54,9 +54,9 @@ app.get('/ITEM/:id', (req, res) => {
 // 3. Create a new item (已新增 Picture_URL 與 Type)
 app.post('/ITEM', (req, res) => {
     // 從 body 解析新欄位
-    const { name, price, description, pictureUrl, type } = req.body; 
+    const { name, price, description, pictureUrl, type } = req.body;
     const sql = "INSERT INTO `ITEM` (ITEM_NAME, ITEM_PRICE, Description, PICTURE_URL, Type) VALUES (?, ?, ?, ?, ?)";
-    
+
     db.query(sql, [name, price, description, pictureUrl, type], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
@@ -71,7 +71,7 @@ app.put('/ITEM/:id', (req, res) => {
     const { id } = req.params;
     const { name, price, description, pictureUrl, type } = req.body;
     const sql = "UPDATE `ITEM` SET ITEM_NAME = ?, ITEM_PRICE = ?, Description = ?, PICTURE_URL = ?, Type = ? WHERE ITEM_ID = ?";
-    
+
     db.query(sql, [name, price, description, pictureUrl, type, id], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
@@ -127,16 +127,16 @@ app.get('/SEAT/:id', (req, res) => {
 
 // 3. Create a new seat
 app.post('/SEAT', (req, res) => {
-    const { seatName } = req.body; 
+    const { seatName } = req.body;
     const sql = "INSERT INTO `SEAT` (SEAT_NAME) VALUES (?)";
-    
+
     db.query(sql, [seatName], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
-            res.status(201).json({ 
-                message: 'Seat created', 
-                SEAT_ID: results.insertId 
+            res.status(201).json({
+                message: 'Seat created',
+                SEAT_ID: results.insertId
             });
         }
     });
@@ -147,7 +147,7 @@ app.put('/SEAT/:id', (req, res) => {
     const { id } = req.params;
     const { seatName } = req.body;
     const sql = "UPDATE `SEAT` SET SEAT_NAME = ? WHERE SEAT_ID = ?";
-    
+
     db.query(sql, [seatName, id], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
@@ -205,14 +205,14 @@ app.post('/ORDER', (req, res) => {
     const { seatId, mount, note } = req.body;
     // ORDER_DATE 會自動使用 current_timestamp()，不需手動傳入
     const sql = "INSERT INTO `ORDER` (SEAT_ID, ORDER_MOUNT, NOTE) VALUES (?, ?, ?)";
-    
+
     db.query(sql, [seatId, mount, note], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
-            res.status(201).json({ 
-                message: 'Order created', 
-                ORDER_ID: results.insertId 
+            res.status(201).json({
+                message: 'Order created',
+                ORDER_ID: results.insertId
             });
         }
     });
@@ -223,7 +223,7 @@ app.put('/ORDER/:id', (req, res) => {
     const { id } = req.params;
     const { seatId, mount, note } = req.body;
     const sql = "UPDATE `ORDER` SET SEAT_ID = ?, ORDER_MOUNT = ?, NOTE = ? WHERE ORDER_ID = ?";
-    
+
     db.query(sql, [seatId, mount, note, id], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
@@ -241,7 +241,7 @@ app.delete('/ORDER/:id', (req, res) => {
     // 先刪除該訂單下所有明細
     db.query("DELETE FROM ORDER_DETAIL WHERE ORDER_ID = ?", [id], (err) => {
         if (err) return res.status(500).json({ error: err });
-        
+
         // 再刪除主訂單
         db.query("DELETE FROM `ORDER` WHERE ORDER_ID = ?", [id], (err, results) => {
             if (err) return res.status(500).json({ error: err });
@@ -261,7 +261,7 @@ const updateOrderTotal = (orderId) => {
             WHERE ORDER_ID = ?
         )
         WHERE ORDER_ID = ?`;
-    
+
     db.query(sql, [orderId, orderId], (err) => {
         if (err) console.error("更新訂單總額失敗:", err);
     });
@@ -271,10 +271,10 @@ const updateOrderTotal = (orderId) => {
 app.post('/ORDER_DETAIL', (req, res) => {
     const { orderId, itemId, quantity, priceAtSale, saleInPercent } = req.body;
     const sql = "INSERT INTO ORDER_DETAIL (ORDER_ID, ITEM_ID, QUANTITY, PRICE_AT_SALE, SALE_IN_PERCENT) VALUES (?, ?, ?, ?, ?)";
-    
+
     db.query(sql, [orderId, itemId, quantity, priceAtSale, saleInPercent], (err, results) => {
         if (err) return res.status(500).json({ error: err });
-        
+
         // 新增成功後，觸發計算總額
         updateOrderTotal(orderId);
         res.status(201).json({ message: '明細已新增', DETAIL_ID: results.insertId });
@@ -290,7 +290,7 @@ app.delete('/ORDER_DETAIL/:id', (req, res) => {
             const orderId = results[0].ORDER_ID;
             db.query("DELETE FROM ORDER_DETAIL WHERE DETAIL_ID = ?", [id], (err) => {
                 if (err) return res.status(500).json({ error: err });
-                
+
                 // 刪除成功後，觸發計算總額
                 updateOrderTotal(orderId);
                 res.json({ message: '明細已刪除' });
@@ -333,6 +333,76 @@ app.delete('/ORDER_DETAIL/:id', (req, res) => {
     });
 });
 
+// --- ORDER_DETAIL 出單功能 ---
+
+// 輔助函式：檢查並更新主訂單的 SEND 狀態
+const checkAndSetOrderSend = (orderId) => {
+    // 檢查該訂單是否還有任何明細尚未出單 (SEND = 0)
+    const checkSql = "SELECT COUNT(*) AS unsentCount FROM ORDER_DETAIL WHERE ORDER_ID = ? AND SEND = 0";
+
+    db.query(checkSql, [orderId], (err, results) => {
+        if (err) return console.error("檢查出單狀態失敗:", err);
+
+        // 如果未出單數量為 0，且該訂單至少有一筆明細，則更新主訂單為已出單
+        if (results[0].unsentCount === 0) {
+            const updateOrderSql = "UPDATE `ORDER` SET SEND = 1 WHERE ORDER_ID = ?";
+            db.query(updateOrderSql, [orderId], (err) => {
+                if (err) console.error("更新主訂單 SEND 失敗:", err);
+            });
+        } else {
+            // 若還有未出單項目，確保主訂單維持在 0
+            const resetOrderSql = "UPDATE `ORDER` SET SEND = 0 WHERE ORDER_ID = ?";
+            db.query(resetOrderSql, [orderId]);
+        }
+    });
+};
+
+// 更新明細出單狀態 API
+app.put('/ORDER_DETAIL/send/:detailId', (req, res) => {
+    const { detailId } = req.params;
+    const { sendStatus } = req.body; // 傳入 1 (已出) 或 0 (未出)
+
+    // 1. 先更新明細的 SEND 狀態
+    const updateDetailSql = "UPDATE ORDER_DETAIL SET SEND = ? WHERE DETAIL_ID = ?";
+    db.query(updateDetailSql, [sendStatus, detailId], (err) => {
+        if (err) return res.status(500).json({ error: err });
+
+        // 2. 獲取該明細所屬的 orderId
+        db.query("SELECT ORDER_ID FROM ORDER_DETAIL WHERE DETAIL_ID = ?", [detailId], (err, results) => {
+            if (results && results.length > 0) {
+                const orderId = results[0].ORDER_ID;
+                // 3. 執行檢查並更新主訂單狀態
+                checkAndSetOrderSend(orderId);
+                res.json({ message: '明細出單狀態已更新' });
+            } else {
+                res.status(404).json({ message: '找不到明細' });
+            }
+        });
+    });
+});
+// 取得特定日期的所有訂單及其詳細品項
+app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
+    const { date } = req.query;
+    const sql = `
+        SELECT 
+            o.ORDER_ID, o.SEAT_ID, o.ORDER_DATE, o.NOTE AS ORDER_NOTE, o.SEND AS ORDER_SEND,
+            od.DETAIL_ID, od.QUANTITY, od.PRICE_AT_SALE, od.SALE_IN_PERCENT, od.SEND AS ITEM_SEND,
+            i.ITEM_NAME, i.Type, s.SEAT_NAME
+        FROM \`ORDER\` o
+        JOIN ORDER_DETAIL od ON o.ORDER_ID = od.ORDER_ID
+        JOIN ITEM i ON od.ITEM_ID = i.ITEM_ID
+        JOIN SEAT s ON o.SEAT_ID = s.SEAT_ID
+        WHERE DATE(o.ORDER_DATE) = ?
+        ORDER BY 
+            od.SEND ASC,
+            o.ORDER_DATE ASC, 
+            od.DETAIL_ID ASC`;
+
+    db.query(sql, [date], (err, results) => {
+        if (err) return res.status(500).json({ error: err });
+        res.json(results);
+    });
+});
 
 if (require.main === module) {
     app.listen(3002, () => {
