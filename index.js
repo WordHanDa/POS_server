@@ -181,10 +181,20 @@ app.delete('/SEAT/:id', (req, res) => {
 //ORDER-----------------------------------------------------------------------------
 // 1. 取得所有訂單 (通常會依日期排序，顯示最新的訂單)
 app.get('/ORDER', (req, res) => {
-    const sql = "SELECT * FROM `ORDER` ORDER BY ORDER_DATE DESC";
+    // 使用 JOIN 結合兩張表，並選取所需的欄位
+    const sql = `
+        SELECT 
+            O.*, 
+            S.SEAT_NAME 
+        FROM \`ORDER\` AS O
+        LEFT JOIN \`SEAT\` AS S ON O.SEAT_ID = S.SEAT_ID
+        ORDER BY O.ORDER_DATE DESC
+    `;
+
     db.query(sql, (err, results) => {
         if (err) {
-            res.status(500).json({ error: err });
+            console.error("SQL Error: ", err); // 在伺服器端印出詳細錯誤方便排錯
+            res.status(500).json({ error: "Database query failed" });
         } else {
             res.json(results);
         }
