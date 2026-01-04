@@ -392,7 +392,8 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
         SELECT 
             o.ORDER_ID, o.SEAT_ID, o.ORDER_DATE, o.NOTE AS ORDER_NOTE, o.SEND AS ORDER_SEND,
             od.DETAIL_ID, od.QUANTITY, od.SEND AS ITEM_SEND,
-            i.ITEM_NAME, i.Type, s.SEAT_NAME
+            i.ITEM_NAME, i.PRICE AS PRICE_AT_SALE, -- 這裡一定要加！
+            i.Type, s.SEAT_NAME
         FROM \`ORDER\` o
         JOIN ORDER_DETAIL od ON o.ORDER_ID = od.ORDER_ID
         JOIN ITEM i ON od.ITEM_ID = i.ITEM_ID
@@ -404,7 +405,10 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
             od.DETAIL_ID ASC`;
 
     db.query(sql, [date], (err, results) => {
-        if (err) return res.status(500).json({ error: err });
+        if (err) {
+            console.error("SQL Error:", err); // 增加 log 方便在 Vercel 後台排錯
+            return res.status(500).json({ error: "Database error" });
+        }
         res.json(results);
     });
 });
