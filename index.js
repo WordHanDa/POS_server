@@ -386,7 +386,7 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
     const sql = `
         SELECT 
             o.ORDER_ID, o.SEAT_ID, o.ORDER_DATE, o.NOTE AS ORDER_NOTE, o.SEND AS ORDER_SEND,
-            od.DETAIL_ID, od.QUANTITY, od.PRICE_AT_SALE, od.SALE_IN_PERCENT, od.SEND AS ITEM_SEND,
+            od.DETAIL_ID, od.QUANTITY, od.SEND AS ITEM_SEND,
             i.ITEM_NAME, i.Type, s.SEAT_NAME
         FROM \`ORDER\` o
         JOIN ORDER_DETAIL od ON o.ORDER_ID = od.ORDER_ID

@@ -1,6 +1,12 @@
 {
-  "version": 2,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.js" }
+    {
+      "source": "/api/:path*",
+      "destination": "http://114.32.141.80:3002/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }
