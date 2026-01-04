@@ -25,7 +25,12 @@ db.getConnection((err, connection) => {
         connection.release();
     }
 });
-
+app.use(cors({
+  origin: 'https://pos-manage.vercel.app', // 允許你的前端來源
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  credentials: true, // 如果你有用到 Cookie 或 Authorization Header
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 // 1. Get all items
 app.get('/ITEM', (req, res) => {
     db.query("SELECT * FROM `ITEM`", (err, results) => {
