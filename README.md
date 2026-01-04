@@ -52,60 +52,30 @@ npm run dev
 npm start
 ```
 
+### 測試
+```bash
+npm test
+```
+
 服務器將在 http://localhost:3002 上運行。
 
 ## API 端點
 
-### 用戶管理
-- `GET /USER` - 獲取所有用戶
-- `POST /createUser` - 建立新用戶
-- `PUT /updateUser` - 更新用戶
-- `DELETE /deleteUser` - 刪除用戶
+### 項目管理 (ITEM)
+- `GET /ITEM` - 獲取所有項目
+- `GET /ITEM/:id` - 獲取指定項目
+- `POST /ITEM` - 建立新項目
+- `PUT /ITEM/:id` - 更新項目
+- `DELETE /ITEM/:id` - 刪除項目
 
-### 群組管理
-- `GET /GROUP` - 獲取所有群組
-- `POST /createGroup` - 建立新群組
-- `PUT /updateGroup` - 更新群組
-- `PUT /updateGroupSettle` - 更新群組結算狀態
-- `DELETE /deleteGroup` - 刪除群組
-- `DELETE /api/groups/:groupId` - 刪除指定群組
+## 測試
 
-### 群組成員管理
-- `POST /addGroupUser` - 添加用戶到群組
-- `DELETE /removeGroupUser` - 從群組移除用戶
-- `GET /getUsersByGroupId` - 獲取群組內所有用戶
+專案包含完整的API測試，使用Jest和Supertest進行端點測試。測試模擬資料庫操作，確保API行為正確。
 
-### 帳單管理
-- `POST /createBill` - 建立新帳單
-- `PUT /updateBill` - 更新帳單
-- `DELETE /deleteBill` - 刪除帳單
-- `GET /getBillsByGroupId` - 獲取群組內所有帳單
-- `GET /getBillDetails` - 獲取帳單詳情
-
-### 項目管理
-- `POST /createItem` - 建立帳單項目
-- `PUT /updateItem` - 更新帳單項目
-- `GET /getItems` - 獲取帳單項目
-
-### 分割記錄
-- `POST /createSplitRecord` - 建立分割記錄
-- `PUT /updateSplitRecord` - 更新分割記錄
-- `GET /getSplitRecord` - 獲取分割記錄
-- `GET /getSplitRecords` - 獲取分割記錄（複數）
-
-### 匯率管理
-- `GET /RATE` - 獲取最新匯率
-- `GET /YOUR_RATE` - 獲取用戶個人匯率
-- `GET /YOUR_RATE/latest` - 獲取群組內最新匯率
-- `GET /YOUR_RATE/user` - 獲取指定用戶的匯率
-- `PUT /updateRate` - 更新匯率
-- `POST /createRate` - 建立新匯率
-
-### 統計計算
-- `GET /getGroupTotals` - 獲取群組總計
-- `GET /total_advance` - 獲取用戶預付總額
-- `GET /total_cost` - 獲取用戶應付總額
-- `GET /group_balance` - 獲取群組餘額
+運行測試：
+```bash
+npm test
+```
 
 ## 環境變數
 
