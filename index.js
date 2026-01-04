@@ -107,7 +107,18 @@ app.delete('/ITEM/:id', (req, res) => {
 
 // 1. Get all seats
 app.get('/SEAT', (req, res) => {
-    db.query("SELECT * FROM `SEAT`", (err, results) => {
+    // 使用 LEFT JOIN 結合 ORDER 表，只計算 settle = 0 (未結清) 的訂單數量
+    const sql = `
+        SELECT 
+            S.SEAT_ID, 
+            S.SEAT_NAME, 
+            COUNT(O.ORDER_ID) AS active_orders
+        FROM \`SEAT\` S
+        LEFT JOIN \`ORDER\` O ON S.SEAT_ID = O.SEAT_ID AND (O.settle = 0 OR O.settle IS NULL)
+        GROUP BY S.SEAT_ID
+    `;
+
+    db.query(sql, (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
