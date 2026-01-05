@@ -553,6 +553,7 @@ app.post('/PLACE_ORDER', (req, res) => {
 
 app.get('/ITEM_GROUPED', (req, res) => {
     const { type } = req.query;
+    // 依名稱排序，確保處理時邏輯一致
     const sql = "SELECT * FROM `ITEM` WHERE Type = ? ORDER BY ITEM_NAME ASC";
 
     db.query(sql, [type], (err, results) => {
@@ -560,40 +561,52 @@ app.get('/ITEM_GROUPED', (req, res) => {
 
         const grouped = {};
 
-        // server.js 內的 /ITEM_GROUPED 路由
         results.forEach(item => {
-            // 1. 提取名稱 (移除 ml 資訊)
+            // 1. 提取基礎名稱：移除括號內容及 ml 標記 (例如 "KI NO BI (15ml)" -> "KI NO BI")
             const baseName = item.ITEM_NAME.replace(/\s*\(.*?\)/g, '').replace(/\s*\d+ml.*/i, '').trim();
 
-            // 2. 核心修改：從 Description 提取 ABV 數值
-            // 支援格式：abv:45%, ABV: 47.3%, abv：40%
+            // 2. 提取 ABV：從 Description 中提取 abv:xx% 數值
             const abvMatch = item.Description ? item.Description.match(/abv[:：\s]*(\d+\.?\d*)\s*%/i) : null;
             const extractedAbv = abvMatch ? abvMatch[1] : null;
 
-            // 3. 核心修改：從 Description 移除 abv 字串，避免描述文字重複顯示
+            // 3. 清洗 Description：移除 abv 字串避免重複顯示
             const cleanDescription = item.Description
                 ? item.Description.replace(/abv[:：\s]*\d+\.?\d*\s*%/i, '').trim()
                 : "";
 
+            // 4. 偵測容量 (size)：抓取名稱中的 15ml 或 30ml
+            const sizeMatch = item.ITEM_NAME.match(/(\d+\s*ml)/i);
+            const sizeLabel = sizeMatch ? sizeMatch[0].replace(/\s+/g, '').toLowerCase() : null;
+
             if (!grouped[baseName]) {
                 grouped[baseName] = {
                     display_name: baseName,
-                    description: cleanDescription, // 使用過濾後的描述
+                    description: cleanDescription,
                     picture_url: item.PICTURE_URL,
-                    display_abv: extractedAbv,    // 獨立傳送 ABV 數值
+                    display_abv: extractedAbv,
                     variants: []
                 };
             }
 
-            // 處理容量與價格 (略，維持原本邏輯)
-            // ...
+            // 5. 插入變體數據
+            grouped[baseName].variants.push({
+                item_id: item.ITEM_ID,
+                price: item.ITEM_PRICE,
+                size: sizeLabel, 
+                original_name: item.ITEM_NAME
+            });
         });
 
-        // 價格排序補償 (同前次邏輯)
+        // 6. 排序補償邏輯：確保同一字卡內的價格由低到高，並自動標註缺失的 size
         const finalData = Object.values(grouped).map(group => {
+            // 按價格排序
             group.variants.sort((a, b) => a.price - b.price);
+            
             group.variants = group.variants.map((v, idx) => {
-                if (!v.size) v.size = idx === 0 ? '15ml' : '30ml';
+                // 如果 Regex 沒抓到容量標籤，則便宜的預設 15ml，貴的預設 30ml
+                if (!v.size) {
+                    v.size = idx === 0 ? '15ml' : '30ml';
+                }
                 return v;
             });
             return group;
