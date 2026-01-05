@@ -553,18 +553,17 @@ app.post('/PLACE_ORDER', (req, res) => {
 
 app.get('/ITEM_GROUPED', (req, res) => {
     const { type } = req.query;
-    // 查詢該類別所有品項
+    // 依名稱排序，確保同一款酒的 15ml 和 30ml 會排在一起
     const sql = "SELECT * FROM `ITEM` WHERE Type = ? ORDER BY ITEM_NAME ASC";
 
     db.query(sql, [type], (err, results) => {
         if (err) return res.status(500).json({ error: err });
 
-        // 在後端進行分組邏輯：將 "Name (15ml)" 和 "Name (30ml)" 視為同一組
         const grouped = {};
 
         results.forEach(item => {
-            // 使用正規表達式去掉括號內的 ml 資訊，取得純名字
-            // 例如 "Kinobi Gin (15ml)" -> baseName = "Kinobi Gin"
+            // 正則表達式：尋找括號及其內含的 ml (例如 " (15ml)") 並移除
+            // 也會處理大小寫不同的情況
             const baseName = item.ITEM_NAME.replace(/\s*\(\d+ml\)/i, '').trim();
 
             if (!grouped[baseName]) {
@@ -573,13 +572,13 @@ app.get('/ITEM_GROUPED', (req, res) => {
                     description: item.Description,
                     picture_url: item.PICTURE_URL,
                     type: item.Type,
-                    variants: [] // 存放 15ml, 30ml 的具體資料
+                    variants: [] 
                 };
             }
             
-            // 判斷這筆資料是 15ml 還是 30ml
+            // 抓取容量標籤，若名稱內沒寫則標示為 "Standard"
             const sizeMatch = item.ITEM_NAME.match(/(\d+ml)/i);
-            const sizeLabel = sizeMatch ? sizeMatch[1] : 'Standard';
+            const sizeLabel = sizeMatch ? sizeMatch[0] : 'Standard';
 
             grouped[baseName].variants.push({
                 item_id: item.ITEM_ID,
