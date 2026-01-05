@@ -482,50 +482,48 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
     });
 });
 
-// --- 整合式結帳功能：一次處理主訂單與多筆明細 ---
 app.post('/PLACE_ORDER', (req, res) => {
     const { items, note } = req.body;
-    const seatId = req.query.SEAT_ID; // 從 URL 參數 ?SEAT_ID=xxx 取得
+    // 獲取桌號並確保其為數字
+    const seatId = parseInt(req.query.SEAT_ID, 10) || 1; 
 
     if (!items || items.length === 0) {
         return res.status(400).json({ error: "購物車是空的" });
     }
 
     db.getConnection((err, connection) => {
-        if (err) return res.status(500).json({ error: "連線失敗" });
+        if (err) return res.status(500).json({ error: "資料庫連線獲取失敗" });
 
         connection.beginTransaction((err) => {
-            if (err) { connection.release(); return res.status(500).json({ error: err }); }
+            if (err) { connection.release(); return res.status(500).json({ error: "事務啟動失敗" }); }
 
-            // 使用 Query Parameter 傳進來的 seatId
+            // 1. 插入主訂單
             const orderSql = "INSERT INTO `ORDER` (SEAT_ID, ORDER_MOUNT, NOTE) VALUES (?, ?, ?)";
-            
             connection.query(orderSql, [seatId, 0, note || '手機點餐'], (err, orderResult) => {
                 if (err) {
-                    return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                    return connection.rollback(() => { connection.release(); res.status(500).json({ error: "主訂單建立失敗", details: err }); });
                 }
 
                 const newOrderId = orderResult.insertId;
 
-                // 批次插入明細，並將備註 (item.note) 存入資料庫
+                // 2. 準備明細數據 (請確保 ORDER_DETAIL 表有 NOTE 欄位)
                 const detailValues = items.map(item => [
                     newOrderId, 
                     item.ITEM_ID, 
                     item.quantity, 
                     item.ITEM_PRICE, 
-                    100,
-                    item.note || "" // 儲存個別品項備註
+                    100, // SALE_IN_PERCENT 預設 100 代表無折扣
+                    item.note || "" 
                 ]);
 
-                // 假設你的 ORDER_DETAIL 表有 NOTE 欄位
                 const detailSql = "INSERT INTO ORDER_DETAIL (ORDER_ID, ITEM_ID, QUANTITY, PRICE_AT_SALE, SALE_IN_PERCENT, NOTE) VALUES ?";
                 
                 connection.query(detailSql, [detailValues], (err) => {
                     if (err) {
-                        return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                        return connection.rollback(() => { connection.release(); res.status(500).json({ error: "訂單明細建立失敗", details: err }); });
                     }
 
-                    // 更新總額... (後續邏輯與之前相同)
+                    // 3. 自動更新該訂單的總金額 (ORDER_MOUNT)
                     const updateMountSql = `
                         UPDATE \`ORDER\` 
                         SET ORDER_MOUNT = (SELECT SUM(PRICE_AT_SALE * QUANTITY) FROM ORDER_DETAIL WHERE ORDER_ID = ?) 
@@ -533,13 +531,18 @@ app.post('/PLACE_ORDER', (req, res) => {
 
                     connection.query(updateMountSql, [newOrderId, newOrderId], (err) => {
                         if (err) {
-                            return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                            return connection.rollback(() => { connection.release(); res.status(500).json({ error: "總金額更新失敗" }); });
                         }
 
+                        // 4. 提交事務並釋放連線
                         connection.commit((err) => {
-                            if (err) return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                            if (err) return connection.rollback(() => { connection.release(); res.status(500).json({ error: "提交失敗" }); });
                             connection.release();
-                            res.status(201).json({ message: '訂單建立成功', ORDER_ID: newOrderId });
+                            res.status(201).json({ 
+                                message: '訂單建立成功', 
+                                ORDER_ID: newOrderId,
+                                SEAT_ID: seatId
+                            });
                         });
                     });
                 });
