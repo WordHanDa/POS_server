@@ -41,6 +41,29 @@ app.get('/ITEM', (req, res) => {
         }
     });
 });
+app.get('/ITEM_BY_TYPE', (req, res) => {
+    const { type } = req.query;
+
+    if (type) {
+        // 如果有提供 type 參數
+        db.query("SELECT * FROM `ITEM` WHERE Type = ?", [type], (err, results) => {
+            if (err) {
+                res.status(500).json({ error: err });
+            } else {
+                res.json(results);
+            }
+        });
+    } else {
+        // 如果沒有 type 參數，維持原樣回傳所有項目
+        db.query("SELECT * FROM `ITEM`", (err, results) => {
+            if (err) {
+                res.status(500).json({ error: err });
+            } else {
+                res.json(results);
+            }
+        });
+    }
+});
 
 // 2. Get a specific item by ID
 app.get('/ITEM/:id', (req, res) => {
