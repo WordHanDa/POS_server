@@ -6,6 +6,12 @@ app.use(express.json());
 app.use(cors());
 require('dotenv').config();
 
+const AllowOrigin = [
+    'https://pos-manage.vercel.app',
+    'https://posfront-psi.vercel.app',
+    'http://localhost:3000'
+];
+
 const db = mysql.createPool({
     host: process.env.dbhost,
     user: process.env.dbuser,
@@ -26,9 +32,16 @@ db.getConnection((err, connection) => {
     }
 });
 app.use(cors({
-    origin: 'https://pos-manage.vercel.app', // 允許你的前端來源
-    origin: 'https://posfront-psi.vercel.app', // 允許你的前端來源
-    origin: 'http://localhost:3000', // 允許本地開發來源
+    origin: function (origin, callback) {
+        // 允許沒有 origin 的請求（例如 Postman 或 curl）
+        if (!origin) return callback(null, true);
+        if (AllowOrigin.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+        credentials: true
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true, // 如果你有用到 Cookie 或 Authorization Header
     allowedHeaders: ['Content-Type', 'Authorization']
