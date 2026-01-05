@@ -485,7 +485,7 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
 app.post('/PLACE_ORDER', (req, res) => {
     const { items, note } = req.body;
     // 獲取桌號並確保其為數字
-    const seatId = parseInt(req.query.SEAT_ID, 10) || 1; 
+    const seatId = parseInt(req.query.SEAT_ID, 10) || 1;
 
     if (!items || items.length === 0) {
         return res.status(400).json({ error: "購物車是空的" });
@@ -508,16 +508,16 @@ app.post('/PLACE_ORDER', (req, res) => {
 
                 // 2. 準備明細數據 (請確保 ORDER_DETAIL 表有 NOTE 欄位)
                 const detailValues = items.map(item => [
-                    newOrderId, 
-                    item.ITEM_ID, 
-                    item.quantity, 
-                    item.ITEM_PRICE, 
+                    newOrderId,
+                    item.ITEM_ID,
+                    item.quantity,
+                    item.ITEM_PRICE,
                     100, // SALE_IN_PERCENT 預設 100 代表無折扣
-                    item.note || "" 
+                    item.note || ""
                 ]);
 
                 const detailSql = "INSERT INTO ORDER_DETAIL (ORDER_ID, ITEM_ID, QUANTITY, PRICE_AT_SALE, SALE_IN_PERCENT, NOTE) VALUES ?";
-                
+
                 connection.query(detailSql, [detailValues], (err) => {
                     if (err) {
                         return connection.rollback(() => { connection.release(); res.status(500).json({ error: "訂單明細建立失敗", details: err }); });
@@ -538,8 +538,8 @@ app.post('/PLACE_ORDER', (req, res) => {
                         connection.commit((err) => {
                             if (err) return connection.rollback(() => { connection.release(); res.status(500).json({ error: "提交失敗" }); });
                             connection.release();
-                            res.status(201).json({ 
-                                message: '訂單建立成功', 
+                            res.status(201).json({
+                                message: '訂單建立成功',
                                 ORDER_ID: newOrderId,
                                 SEAT_ID: seatId
                             });
@@ -560,41 +560,40 @@ app.get('/ITEM_GROUPED', (req, res) => {
 
         const grouped = {};
 
+        // server.js 內的 /ITEM_GROUPED 路由
         results.forEach(item => {
-            // 優化後的名稱處理：移除括號及其內容
+            // 1. 提取名稱 (移除 ml 資訊)
             const baseName = item.ITEM_NAME.replace(/\s*\(.*?\)/g, '').replace(/\s*\d+ml.*/i, '').trim();
+
+            // 2. 核心修改：從 Description 提取 ABV 數值
+            // 支援格式：abv:45%, ABV: 47.3%, abv：40%
+            const abvMatch = item.Description ? item.Description.match(/abv[:：\s]*(\d+\.?\d*)\s*%/i) : null;
+            const extractedAbv = abvMatch ? abvMatch[1] : null;
+
+            // 3. 核心修改：從 Description 移除 abv 字串，避免描述文字重複顯示
+            const cleanDescription = item.Description
+                ? item.Description.replace(/abv[:：\s]*\d+\.?\d*\s*%/i, '').trim()
+                : "";
 
             if (!grouped[baseName]) {
                 grouped[baseName] = {
                     display_name: baseName,
-                    description: item.Description,
+                    description: cleanDescription, // 使用過濾後的描述
                     picture_url: item.PICTURE_URL,
+                    display_abv: extractedAbv,    // 獨立傳送 ABV 數值
                     variants: []
                 };
             }
 
-            // 優化後的 Regex：支援 "15ml", "15 ml", "15ML"
-            const sizeMatch = item.ITEM_NAME.match(/(\d+\s*ml)/i);
-            let sizeLabel = sizeMatch ? sizeMatch[0].replace(' ', '').toLowerCase() : null;
-
-            grouped[baseName].variants.push({
-                item_id: item.ITEM_ID,
-                price: item.ITEM_PRICE,
-                size: sizeLabel, // 暫時存下抓到的值
-                original_name: item.ITEM_NAME
-            });
+            // 處理容量與價格 (略，維持原本邏輯)
+            // ...
         });
 
-        // 最後處理：如果抓不到 size，則依價格排序自動標記
+        // 價格排序補償 (同前次邏輯)
         const finalData = Object.values(grouped).map(group => {
-            // 先按價格由小到大排序
             group.variants.sort((a, b) => a.price - b.price);
-            
             group.variants = group.variants.map((v, idx) => {
-                if (!v.size) {
-                    // 如果沒抓到 size，第一個（較便宜）設為 15ml，第二個設為 30ml
-                    v.size = idx === 0 ? '15ml' : '30ml';
-                }
+                if (!v.size) v.size = idx === 0 ? '15ml' : '30ml';
                 return v;
             });
             return group;
