@@ -484,48 +484,48 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
 
 // --- 整合式結帳功能：一次處理主訂單與多筆明細 ---
 app.post('/PLACE_ORDER', (req, res) => {
-    const { items, note } = req.body;
-    const seatId = req.query.SEAT_ID; // 從 URL 參數 ?SEAT_ID=xxx 取得
+    const { items, seatId, note } = req.body;
 
     if (!items || items.length === 0) {
         return res.status(400).json({ error: "購物車是空的" });
     }
 
+    // 1. 開始資料庫事務
     db.getConnection((err, connection) => {
-        if (err) return res.status(500).json({ error: "連線失敗" });
+        if (err) return res.status(500).json({ error: "資料庫連線失敗" });
 
         connection.beginTransaction((err) => {
             if (err) { connection.release(); return res.status(500).json({ error: err }); }
 
-            // 使用 Query Parameter 傳進來的 seatId
+            // 2. 插入主訂單 (暫時將 mount 設為 0，後續由明細加總)
             const orderSql = "INSERT INTO `ORDER` (SEAT_ID, ORDER_MOUNT, NOTE) VALUES (?, ?, ?)";
+            const defaultSeat = seatId || 1; // 假設沒桌號預設為 1 號桌或外帶
             
-            connection.query(orderSql, [seatId, 0, note || '手機點餐'], (err, orderResult) => {
+            connection.query(orderSql, [defaultSeat, 0, note || '掃碼點餐'], (err, orderResult) => {
                 if (err) {
                     return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
                 }
 
                 const newOrderId = orderResult.insertId;
 
-                // 批次插入明細，並將備註 (item.note) 存入資料庫
+                // 3. 準備插入明細 (使用批次插入語法)
+                // [[orderId, itemId, qty, price, sale], [orderId, itemId, qty, price, sale]...]
                 const detailValues = items.map(item => [
                     newOrderId, 
                     item.ITEM_ID, 
                     item.quantity, 
                     item.ITEM_PRICE, 
-                    100,
-                    item.note || "" // 儲存個別品項備註
+                    100 // 預設折扣 100%
                 ]);
 
-                // 假設你的 ORDER_DETAIL 表有 NOTE 欄位
-                const detailSql = "INSERT INTO ORDER_DETAIL (ORDER_ID, ITEM_ID, QUANTITY, PRICE_AT_SALE, SALE_IN_PERCENT, NOTE) VALUES ?";
+                const detailSql = "INSERT INTO ORDER_DETAIL (ORDER_ID, ITEM_ID, QUANTITY, PRICE_AT_SALE, SALE_IN_PERCENT) VALUES ?";
                 
                 connection.query(detailSql, [detailValues], (err) => {
                     if (err) {
                         return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
                     }
 
-                    // 更新總額... (後續邏輯與之前相同)
+                    // 4. 更新主訂單的總額 (加總剛剛插入的明細)
                     const updateMountSql = `
                         UPDATE \`ORDER\` 
                         SET ORDER_MOUNT = (SELECT SUM(PRICE_AT_SALE * QUANTITY) FROM ORDER_DETAIL WHERE ORDER_ID = ?) 
@@ -536,10 +536,16 @@ app.post('/PLACE_ORDER', (req, res) => {
                             return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
                         }
 
+                        // 5. 提交事務
                         connection.commit((err) => {
-                            if (err) return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                            if (err) {
+                                return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                            }
                             connection.release();
-                            res.status(201).json({ message: '訂單建立成功', ORDER_ID: newOrderId });
+                            res.status(201).json({ 
+                                message: '訂單建立成功', 
+                                ORDER_ID: newOrderId 
+                            });
                         });
                     });
                 });
