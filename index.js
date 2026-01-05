@@ -482,6 +482,78 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
     });
 });
 
+// --- 整合式結帳功能：一次處理主訂單與多筆明細 ---
+app.post('/PLACE_ORDER', (req, res) => {
+    const { items, seatId, note } = req.body;
+
+    if (!items || items.length === 0) {
+        return res.status(400).json({ error: "購物車是空的" });
+    }
+
+    // 1. 開始資料庫事務
+    db.getConnection((err, connection) => {
+        if (err) return res.status(500).json({ error: "資料庫連線失敗" });
+
+        connection.beginTransaction((err) => {
+            if (err) { connection.release(); return res.status(500).json({ error: err }); }
+
+            // 2. 插入主訂單 (暫時將 mount 設為 0，後續由明細加總)
+            const orderSql = "INSERT INTO `ORDER` (SEAT_ID, ORDER_MOUNT, NOTE) VALUES (?, ?, ?)";
+            const defaultSeat = seatId || 1; // 假設沒桌號預設為 1 號桌或外帶
+            
+            connection.query(orderSql, [defaultSeat, 0, note || '掃碼點餐'], (err, orderResult) => {
+                if (err) {
+                    return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                }
+
+                const newOrderId = orderResult.insertId;
+
+                // 3. 準備插入明細 (使用批次插入語法)
+                // [[orderId, itemId, qty, price, sale], [orderId, itemId, qty, price, sale]...]
+                const detailValues = items.map(item => [
+                    newOrderId, 
+                    item.ITEM_ID, 
+                    item.quantity, 
+                    item.ITEM_PRICE, 
+                    100 // 預設折扣 100%
+                ]);
+
+                const detailSql = "INSERT INTO ORDER_DETAIL (ORDER_ID, ITEM_ID, QUANTITY, PRICE_AT_SALE, SALE_IN_PERCENT) VALUES ?";
+                
+                connection.query(detailSql, [detailValues], (err) => {
+                    if (err) {
+                        return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                    }
+
+                    // 4. 更新主訂單的總額 (加總剛剛插入的明細)
+                    const updateMountSql = `
+                        UPDATE \`ORDER\` 
+                        SET ORDER_MOUNT = (SELECT SUM(PRICE_AT_SALE * QUANTITY) FROM ORDER_DETAIL WHERE ORDER_ID = ?) 
+                        WHERE ORDER_ID = ?`;
+
+                    connection.query(updateMountSql, [newOrderId, newOrderId], (err) => {
+                        if (err) {
+                            return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                        }
+
+                        // 5. 提交事務
+                        connection.commit((err) => {
+                            if (err) {
+                                return connection.rollback(() => { connection.release(); res.status(500).json({ error: err }); });
+                            }
+                            connection.release();
+                            res.status(201).json({ 
+                                message: '訂單建立成功', 
+                                ORDER_ID: newOrderId 
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
 if (require.main === module) {
     app.listen(3002, () => {
         console.log('OK, server is running on port 3002');
