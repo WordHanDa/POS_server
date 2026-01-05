@@ -553,7 +553,6 @@ app.post('/PLACE_ORDER', (req, res) => {
 
 app.get('/ITEM_GROUPED', (req, res) => {
     const { type } = req.query;
-    // 依名稱排序，確保同一款酒的 15ml 和 30ml 會排在一起
     const sql = "SELECT * FROM `ITEM` WHERE Type = ? ORDER BY ITEM_NAME ASC";
 
     db.query(sql, [type], (err, results) => {
@@ -562,33 +561,46 @@ app.get('/ITEM_GROUPED', (req, res) => {
         const grouped = {};
 
         results.forEach(item => {
-            // 正則表達式：尋找括號及其內含的 ml (例如 " (15ml)") 並移除
-            // 也會處理大小寫不同的情況
-            const baseName = item.ITEM_NAME.replace(/\s*\(\d+ml\)/i, '').trim();
+            // 優化後的名稱處理：移除括號及其內容
+            const baseName = item.ITEM_NAME.replace(/\s*\(.*?\)/g, '').replace(/\s*\d+ml.*/i, '').trim();
 
             if (!grouped[baseName]) {
                 grouped[baseName] = {
                     display_name: baseName,
                     description: item.Description,
                     picture_url: item.PICTURE_URL,
-                    type: item.Type,
-                    variants: [] 
+                    variants: []
                 };
             }
-            
-            // 抓取容量標籤，若名稱內沒寫則標示為 "Standard"
-            const sizeMatch = item.ITEM_NAME.match(/(\d+ml)/i);
-            const sizeLabel = sizeMatch ? sizeMatch[0] : 'Standard';
+
+            // 優化後的 Regex：支援 "15ml", "15 ml", "15ML"
+            const sizeMatch = item.ITEM_NAME.match(/(\d+\s*ml)/i);
+            let sizeLabel = sizeMatch ? sizeMatch[0].replace(' ', '').toLowerCase() : null;
 
             grouped[baseName].variants.push({
                 item_id: item.ITEM_ID,
                 price: item.ITEM_PRICE,
-                size: sizeLabel,
+                size: sizeLabel, // 暫時存下抓到的值
                 original_name: item.ITEM_NAME
             });
         });
 
-        res.json(Object.values(grouped));
+        // 最後處理：如果抓不到 size，則依價格排序自動標記
+        const finalData = Object.values(grouped).map(group => {
+            // 先按價格由小到大排序
+            group.variants.sort((a, b) => a.price - b.price);
+            
+            group.variants = group.variants.map((v, idx) => {
+                if (!v.size) {
+                    // 如果沒抓到 size，第一個（較便宜）設為 15ml，第二個設為 30ml
+                    v.size = idx === 0 ? '15ml' : '30ml';
+                }
+                return v;
+            });
+            return group;
+        });
+
+        res.json(finalData);
     });
 });
 
