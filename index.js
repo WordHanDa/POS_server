@@ -551,6 +551,48 @@ app.post('/PLACE_ORDER', (req, res) => {
     });
 });
 
+app.get('/ITEM_GROUPED', (req, res) => {
+    const { type } = req.query;
+    // 查詢該類別所有品項
+    const sql = "SELECT * FROM `ITEM` WHERE Type = ? ORDER BY ITEM_NAME ASC";
+
+    db.query(sql, [type], (err, results) => {
+        if (err) return res.status(500).json({ error: err });
+
+        // 在後端進行分組邏輯：將 "Name (15ml)" 和 "Name (30ml)" 視為同一組
+        const grouped = {};
+
+        results.forEach(item => {
+            // 使用正規表達式去掉括號內的 ml 資訊，取得純名字
+            // 例如 "Kinobi Gin (15ml)" -> baseName = "Kinobi Gin"
+            const baseName = item.ITEM_NAME.replace(/\s*\(\d+ml\)/i, '').trim();
+
+            if (!grouped[baseName]) {
+                grouped[baseName] = {
+                    display_name: baseName,
+                    description: item.Description,
+                    picture_url: item.PICTURE_URL,
+                    type: item.Type,
+                    variants: [] // 存放 15ml, 30ml 的具體資料
+                };
+            }
+            
+            // 判斷這筆資料是 15ml 還是 30ml
+            const sizeMatch = item.ITEM_NAME.match(/(\d+ml)/i);
+            const sizeLabel = sizeMatch ? sizeMatch[1] : 'Standard';
+
+            grouped[baseName].variants.push({
+                item_id: item.ITEM_ID,
+                price: item.ITEM_PRICE,
+                size: sizeLabel,
+                original_name: item.ITEM_NAME
+            });
+        });
+
+        res.json(Object.values(grouped));
+    });
+});
+
 if (require.main === module) {
     app.listen(3002, () => {
         console.log('OK, server is running on port 3002');
