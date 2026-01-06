@@ -146,6 +146,8 @@ app.get('/SEAT_STATUS', (req, res) => {
         SELECT 
             S.SEAT_ID, 
             S.SEAT_NAME, 
+            S.POSITION_X, 
+            S.POSITION_Y,
             COUNT(O.ORDER_ID) AS active_orders,
             SUM(CASE WHEN O.settle = 0 THEN O.ORDER_MOUNT ELSE 0 END) AS current_total
         FROM \`SEAT\` S
@@ -174,10 +176,11 @@ app.get('/SEAT/:id', (req, res) => {
 
 // 3. Create a new seat
 app.post('/SEAT', (req, res) => {
-    const { seatName } = req.body;
-    const sql = "INSERT INTO `SEAT` (SEAT_NAME) VALUES (?)";
+    // 接收前端傳來的 seatName, x, y
+    const { seatName, x, y } = req.body;
+    const sql = "INSERT INTO `SEAT` (SEAT_NAME, POSITION_X, POSITION_Y) VALUES (?, ?, ?)";
 
-    db.query(sql, [seatName], (err, results) => {
+    db.query(sql, [seatName, x || 0, y || 0], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
@@ -192,10 +195,12 @@ app.post('/SEAT', (req, res) => {
 // 4. Update a seat by ID
 app.put('/SEAT/:id', (req, res) => {
     const { id } = req.params;
-    const { seatName } = req.body;
-    const sql = "UPDATE `SEAT` SET SEAT_NAME = ? WHERE SEAT_ID = ?";
+    const { seatName, x, y } = req.body;
+    
+    // 更新名稱以及 X, Y 座標
+    const sql = "UPDATE `SEAT` SET SEAT_NAME = ?, POSITION_X = ?, POSITION_Y = ? WHERE SEAT_ID = ?";
 
-    db.query(sql, [seatName, id], (err, results) => {
+    db.query(sql, [seatName, x, y, id], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else if (results.affectedRows === 0) {
