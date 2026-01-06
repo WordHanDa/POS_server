@@ -196,7 +196,7 @@ app.post('/SEAT', (req, res) => {
 app.put('/SEAT/:id', (req, res) => {
     const { id } = req.params;
     const { seatName, x, y } = req.body;
-    
+
     // 更新名稱以及 X, Y 座標
     const sql = "UPDATE `SEAT` SET SEAT_NAME = ?, POSITION_X = ?, POSITION_Y = ? WHERE SEAT_ID = ?";
 
@@ -463,11 +463,19 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
     const { date } = req.query;
     const sql = `
         SELECT 
-            o.ORDER_ID, o.SEAT_ID, o.ORDER_DATE, o.NOTE AS ORDER_NOTE, o.SEND AS ORDER_SEND,
-            od.DETAIL_ID, od.QUANTITY, od.SEND AS ITEM_SEND,
+            o.ORDER_ID, 
+            o.SEAT_ID, 
+            o.ORDER_DATE, 
+            o.NOTE AS ORDER_NOTE, 
+            o.SEND AS ORDER_SEND,
+            o.SETTLE, -- 重點：必須加入這個欄位，前端才能判斷是否結帳
+            od.DETAIL_ID, 
+            od.QUANTITY, 
+            od.SEND AS ITEM_SEND,
             i.ITEM_NAME, 
-            i.ITEM_PRICE AS PRICE_AT_SALE, -- 修改這裡：將 ITEM_PRICE 取別名為 PRICE_AT_SALE
-            i.Type, s.SEAT_NAME
+            i.ITEM_PRICE AS PRICE_AT_SALE, 
+            i.Type, 
+            s.SEAT_NAME
         FROM \`ORDER\` o
         JOIN ORDER_DETAIL od ON o.ORDER_ID = od.ORDER_ID
         JOIN ITEM i ON od.ITEM_ID = i.ITEM_ID
@@ -486,7 +494,6 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
         res.json(results);
     });
 });
-
 app.post('/PLACE_ORDER', (req, res) => {
     const { items, note } = req.body;
     // 獲取桌號並確保其為數字
@@ -597,7 +604,7 @@ app.get('/ITEM_GROUPED', (req, res) => {
             grouped[baseName].variants.push({
                 item_id: item.ITEM_ID,
                 price: item.ITEM_PRICE,
-                size: sizeLabel, 
+                size: sizeLabel,
                 original_name: item.ITEM_NAME
             });
         });
@@ -606,7 +613,7 @@ app.get('/ITEM_GROUPED', (req, res) => {
         const finalData = Object.values(grouped).map(group => {
             // 按價格排序
             group.variants.sort((a, b) => a.price - b.price);
-            
+
             group.variants = group.variants.map((v, idx) => {
                 // 如果 Regex 沒抓到容量標籤，則便宜的預設 15ml，貴的預設 30ml
                 if (!v.size) {
