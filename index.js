@@ -4,6 +4,9 @@ const cors = require('cors');
 const app = express();
 app.use(express.json());
 app.use(cors());
+const http = require('http');
+const { Server } = require('socket.io');
+
 require('dotenv').config();
 
 const AllowOrigin = [
@@ -22,6 +25,16 @@ const db = mysql.createPool({
     connectionLimit: 5,
     queueLimit: 0
 });
+
+const server = http.createServer(app); // 包裝 app
+const io = new Server(server, {
+    cors: {
+        origin: AllowOrigin, // 使用你原本定義的跨域清單
+        methods: ["GET", "POST", "PUT"]
+    }
+});
+
+app.set('socketio', io);
 
 db.getConnection((err, connection) => {
     if (err) {
@@ -446,6 +459,8 @@ app.put('/ORDER_DETAIL/send/:detailId', (req, res) => {
                 const orderId = results[0].ORDER_ID;
                 // 3. 執行檢查並更新主訂單狀態
                 checkAndSetOrderSend(orderId);
+                const io = req.app.get('socketio');
+                io.emit('order_updated', { message: 'Order status changed' });
                 res.json({ message: '明細出單狀態已更新' });
             } else {
                 res.status(404).json({ message: '找不到明細' });
@@ -537,6 +552,8 @@ app.post('/PLACE_ORDER', (req, res) => {
                         // 4. 提交事務並釋放連線
                         connection.commit((err) => {
                             if (err) return connection.rollback(() => { connection.release(); res.status(500).json({ error: "提交失敗" }); });
+                            const io = req.app.get('socketio');
+                            io.emit('order_updated', { message: 'New order received' });
                             connection.release();
                             res.status(201).json({
                                 message: '訂單建立成功',
@@ -592,7 +609,7 @@ app.get('/ITEM_GROUPED', (req, res) => {
             grouped[baseName].variants.push({
                 item_id: item.ITEM_ID,
                 price: item.ITEM_PRICE,
-                size: sizeLabel, 
+                size: sizeLabel,
                 original_name: item.ITEM_NAME
             });
         });
@@ -601,7 +618,7 @@ app.get('/ITEM_GROUPED', (req, res) => {
         const finalData = Object.values(grouped).map(group => {
             // 按價格排序
             group.variants.sort((a, b) => a.price - b.price);
-            
+
             group.variants = group.variants.map((v, idx) => {
                 // 如果 Regex 沒抓到容量標籤，則便宜的預設 15ml，貴的預設 30ml
                 if (!v.size) {
@@ -617,8 +634,8 @@ app.get('/ITEM_GROUPED', (req, res) => {
 });
 
 if (require.main === module) {
-    app.listen(3002, () => {
-        console.log('OK, server is running on port 3002');
+    server.listen(3002, () => {
+        console.log('OK, server with Socket.io is running on port 3002');
     });
 }
 
