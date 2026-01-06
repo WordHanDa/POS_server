@@ -468,7 +468,7 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
             o.ORDER_DATE, 
             o.NOTE AS ORDER_NOTE, 
             o.SEND AS ORDER_SEND,
-            o.settle, -- 重點：必須加入這個欄位，前端才能判斷是否結帳
+            o.settle,
             od.DETAIL_ID, 
             od.QUANTITY, 
             od.SEND AS ITEM_SEND,
@@ -477,8 +477,10 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
             i.Type, 
             s.SEAT_NAME
         FROM \`ORDER\` o
-        JOIN ORDER_DETAIL od ON o.ORDER_ID = od.ORDER_ID
-        JOIN ITEM i ON od.ITEM_ID = i.ITEM_ID
+        -- 改用 LEFT JOIN，確保沒有細項的訂單也能被撈出
+        LEFT JOIN ORDER_DETAIL od ON o.ORDER_ID = od.ORDER_ID
+        -- i 和 s 通常也建議用 LEFT JOIN 或保持 JOIN (取決於你的資料完整性)
+        LEFT JOIN ITEM i ON od.ITEM_ID = i.ITEM_ID
         JOIN SEAT s ON o.SEAT_ID = s.SEAT_ID
         WHERE DATE(o.ORDER_DATE) = ?
         ORDER BY 
@@ -494,6 +496,7 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
         res.json(results);
     });
 });
+
 app.post('/PLACE_ORDER', (req, res) => {
     const { items, note } = req.body;
     // 獲取桌號並確保其為數字
