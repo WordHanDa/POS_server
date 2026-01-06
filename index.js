@@ -2,10 +2,8 @@ const express = require('express');
 const mysql = require('mysql');
 const cors = require('cors');
 const app = express();
+app.use(express.json());
 app.use(cors());
-const http = require('http');
-const { Server } = require('socket.io');
-
 require('dotenv').config();
 
 const AllowOrigin = [
@@ -35,32 +33,19 @@ db.getConnection((err, connection) => {
 });
 app.use(cors({
     origin: function (origin, callback) {
-        // Vercel 請求或同來源請求 origin 可能為空
-        if (!origin || AllowOrigin.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
+        // 允許沒有 origin 的請求（例如 Postman 或 curl）
+        if (!origin) return callback(null, true);
+        if (AllowOrigin.indexOf(origin) === -1) {
+            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
         }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-app.use(express.json());
-
-const server = http.createServer(app); // 包裝 app
-const io = new Server(server, {
-    cors: {
-        origin: AllowOrigin, // 這裡直接帶入陣列
-        methods: ["GET", "POST", "PUT"],
+        return callback(null, true);
         credentials: true
     },
-    transports: ['polling', 'websocket'] 
-});
-
-app.set('socketio', io);
-
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true, // 如果你有用到 Cookie 或 Authorization Header
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 // 1. Get all items
 app.get('/ITEM', (req, res) => {
     db.query("SELECT * FROM `ITEM`", (err, results) => {
@@ -71,7 +56,6 @@ app.get('/ITEM', (req, res) => {
         }
     });
 });
-
 app.get('/ITEM_BY_TYPE', (req, res) => {
     const { type } = req.query; // 從查詢參數獲取 type，例如 /ITEM?type=aaa
     db.query("SELECT * FROM `ITEM` WHERE Type = ?", [type], (err, results) => {
@@ -450,6 +434,8 @@ const checkAndSetOrderSend = (orderId) => {
 app.put('/ORDER_DETAIL/send/:detailId', (req, res) => {
     const { detailId } = req.params;
     const { sendStatus } = req.body; // 傳入 1 (已出) 或 0 (未出)
+
+    // 1. 先更新明細的 SEND 狀態
     const updateDetailSql = "UPDATE ORDER_DETAIL SET SEND = ? WHERE DETAIL_ID = ?";
     db.query(updateDetailSql, [sendStatus, detailId], (err) => {
         if (err) return res.status(500).json({ error: err });
@@ -460,7 +446,6 @@ app.put('/ORDER_DETAIL/send/:detailId', (req, res) => {
                 const orderId = results[0].ORDER_ID;
                 // 3. 執行檢查並更新主訂單狀態
                 checkAndSetOrderSend(orderId);
-                io.emit('order_updated', { message: 'Order status changed' });
                 res.json({ message: '明細出單狀態已更新' });
             } else {
                 res.status(404).json({ message: '找不到明細' });
@@ -552,8 +537,6 @@ app.post('/PLACE_ORDER', (req, res) => {
                         // 4. 提交事務並釋放連線
                         connection.commit((err) => {
                             if (err) return connection.rollback(() => { connection.release(); res.status(500).json({ error: "提交失敗" }); });
-                            const io = req.app.get('socketio');
-                            io.emit('order_updated', { message: 'New order received' });
                             connection.release();
                             res.status(201).json({
                                 message: '訂單建立成功',
@@ -609,7 +592,7 @@ app.get('/ITEM_GROUPED', (req, res) => {
             grouped[baseName].variants.push({
                 item_id: item.ITEM_ID,
                 price: item.ITEM_PRICE,
-                size: sizeLabel,
+                size: sizeLabel, 
                 original_name: item.ITEM_NAME
             });
         });
@@ -618,7 +601,7 @@ app.get('/ITEM_GROUPED', (req, res) => {
         const finalData = Object.values(grouped).map(group => {
             // 按價格排序
             group.variants.sort((a, b) => a.price - b.price);
-
+            
             group.variants = group.variants.map((v, idx) => {
                 // 如果 Regex 沒抓到容量標籤，則便宜的預設 15ml，貴的預設 30ml
                 if (!v.size) {
@@ -634,9 +617,9 @@ app.get('/ITEM_GROUPED', (req, res) => {
 });
 
 if (require.main === module) {
-    server.listen(3002, () => {
-        console.log('Server is running on port 3002');
+    app.listen(3002, () => {
+        console.log('OK, server is running on port 3002');
     });
-};
+}
 
 module.exports = app;
