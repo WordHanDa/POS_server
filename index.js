@@ -26,16 +26,6 @@ const db = mysql.createPool({
     queueLimit: 0
 });
 
-const server = http.createServer(app); // 包裝 app
-const io = new Server(server, {
-    cors: {
-        origin: AllowOrigin, // 使用你原本定義的跨域清單
-        methods: ["GET", "POST", "PUT"]
-    }
-});
-
-app.set('socketio', io);
-
 db.getConnection((err, connection) => {
     if (err) {
         console.error('Database Pool connection failed:', err);
@@ -46,19 +36,27 @@ db.getConnection((err, connection) => {
 });
 app.use(cors({
     origin: function (origin, callback) {
-        // 允許沒有 origin 的請求（例如 Postman 或 curl）
-        if (!origin) return callback(null, true);
-        if (AllowOrigin.indexOf(origin) === -1) {
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
+        // 如果沒有 origin (如同系統請求) 或是在白名單內則允許
+        if (!origin || AllowOrigin.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
         }
-        return callback(null, true);
-        credentials: true
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true, // 如果你有用到 Cookie 或 Authorization Header
-    allowedHeaders: ['Content-Type', 'Authorization']
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
+
+const server = http.createServer(app); // 包裝 app
+const io = new Server(server, {
+    cors: {
+        origin: AllowOrigin, // 使用你原本定義的跨域清單
+        methods: ["GET", "POST", "PUT"]
+    }
+});
+
+app.set('socketio', io);
+
 // 1. Get all items
 app.get('/ITEM', (req, res) => {
     db.query("SELECT * FROM `ITEM`", (err, results) => {
@@ -69,6 +67,7 @@ app.get('/ITEM', (req, res) => {
         }
     });
 });
+
 app.get('/ITEM_BY_TYPE', (req, res) => {
     const { type } = req.query; // 從查詢參數獲取 type，例如 /ITEM?type=aaa
     db.query("SELECT * FROM `ITEM` WHERE Type = ?", [type], (err, results) => {
