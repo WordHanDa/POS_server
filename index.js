@@ -468,7 +468,7 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
             o.ORDER_DATE, 
             o.NOTE AS ORDER_NOTE, 
             o.SEND AS ORDER_SEND,
-            o.SETTLE, -- 重點：必須加入這個欄位，前端才能判斷是否結帳
+            o.settle, -- 重點：必須加入這個欄位，前端才能判斷是否結帳
             od.DETAIL_ID, 
             od.QUANTITY, 
             od.SEND AS ITEM_SEND,
