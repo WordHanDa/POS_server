@@ -9,7 +9,7 @@ require('dotenv').config();
 const AllowOrigin = [
     'https://pos-manage.vercel.app',
     'https://posfront-psi.vercel.app',
-    'http://localhost:3000'
+    'http://localhost'
 ];
 
 const db = mysql.createPool({
