@@ -504,7 +504,7 @@ app.post('/PLACE_ORDER', (req, res) => {
 
             // 1. 插入主訂單
             const orderSql = "INSERT INTO `ORDER` (SEAT_ID, ORDER_MOUNT, NOTE) VALUES (?, ?, ?)";
-            connection.query(orderSql, [seatId, 0, note || '手機點餐'], (err, orderResult) => {
+            connection.query(orderSql, [seatId, 0, note || '-'], (err, orderResult) => {
                 if (err) {
                     return connection.rollback(() => { connection.release(); res.status(500).json({ error: "主訂單建立失敗", details: err }); });
                 }
