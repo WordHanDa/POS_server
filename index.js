@@ -249,19 +249,23 @@ app.get('/ORDER', (req, res) => {
 });
 
 // 2. 取得特定訂單 (by ID)
+// 修正後的更新訂單 API
 app.put('/ORDER/:id', (req, res) => {
     const { id } = req.params;
-    const { seatId, mount, note, discount } = req.body; // 新增 discount
-    const sql = "UPDATE `ORDER` SET SEAT_ID = ?, ORDER_MOUNT = ?, NOTE = ?, DISCOUNT = ? WHERE ORDER_ID = ?";
+    const { seatId, note, discount } = req.body; 
 
-    db.query(sql, [seatId, mount, note, discount || 0, id], (err, results) => {
-        if (err) {
-            res.status(500).json({ error: err });
-        } else if (results.affectedRows === 0) {
-            res.status(404).json({ message: 'Order not found' });
-        } else {
-            res.json({ message: 'Order updated' });
-        }
+    // 步驟 1: 先更新折扣、備註與座位資訊
+    const updateInfoSql = "UPDATE `ORDER` SET SEAT_ID = ?, NOTE = ?, DISCOUNT = ? WHERE ORDER_ID = ?";
+
+    db.query(updateInfoSql, [seatId, note, discount || 0, id], (err, results) => {
+        if (err) return res.status(500).json({ error: err });
+        if (results.affectedRows === 0) return res.status(404).json({ message: 'Order not found' });
+
+        // 步驟 2: 折扣更新成功後，立即呼叫輔助函式重新計算 ORDER_MOUNT 並寫入資料庫
+        // 這能確保資料庫內的 ORDER_MOUNT 永遠等於 (品項小計 - 最新折扣)
+        updateOrderTotal(id);
+
+        res.json({ message: 'Order updated and mount recalculated' });
     });
 });
 
@@ -333,8 +337,7 @@ app.delete('/ORDER/:id', (req, res) => {
 
 // 輔助函式：更新訂單總額
 const updateOrderTotal = (orderId) => {
-    // 使用 COALESCE 確保 DISCOUNT 若為 NULL 則視為 0
-    // 小計部分也使用 COALESCE 確保沒有明細時為 0
+    // 邏輯：重新抓取所有明細加總，並減去最新的 DISCOUNT
     const sql = `
         UPDATE \`ORDER\` o
         SET o.ORDER_MOUNT = (
