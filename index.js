@@ -249,15 +249,18 @@ app.get('/ORDER', (req, res) => {
 });
 
 // 2. 取得特定訂單 (by ID)
-app.get('/ORDER/:id', (req, res) => {
+app.put('/ORDER/:id', (req, res) => {
     const { id } = req.params;
-    db.query("SELECT * FROM `ORDER` WHERE ORDER_ID = ?", [id], (err, results) => {
+    const { seatId, mount, note, discount } = req.body; // 新增 discount
+    const sql = "UPDATE `ORDER` SET SEAT_ID = ?, ORDER_MOUNT = ?, NOTE = ?, DISCOUNT = ? WHERE ORDER_ID = ?";
+
+    db.query(sql, [seatId, mount, note, discount || 0, id], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
-        } else if (results.length === 0) {
+        } else if (results.affectedRows === 0) {
             res.status(404).json({ message: 'Order not found' });
         } else {
-            res.json(results[0]);
+            res.json({ message: 'Order updated' });
         }
     });
 });
@@ -330,15 +333,15 @@ app.delete('/ORDER/:id', (req, res) => {
 
 // 輔助函式：更新訂單總額
 const updateOrderTotal = (orderId) => {
-    // 使用 COALESCE 確保若無明細時總額為 0 而非 NULL
+    // 邏輯：先從明細算出小計，再減去該訂單原本設定的折扣
     const sql = `
-        UPDATE \`ORDER\` 
-        SET ORDER_MOUNT = (
-            SELECT COALESCE(SUM(PRICE_AT_SALE * QUANTITY * (SALE_IN_PERCENT / 100)), 0)
-            FROM ORDER_DETAIL 
-            WHERE ORDER_ID = ?
-        )
-        WHERE ORDER_ID = ?`;
+        UPDATE \`ORDER\` o
+        SET o.ORDER_MOUNT = (
+            SELECT COALESCE(SUM(od.PRICE_AT_SALE * od.QUANTITY * (od.SALE_IN_PERCENT / 100)), 0)
+            FROM ORDER_DETAIL od
+            WHERE od.ORDER_ID = ?
+        ) - o.DISCOUNT
+        WHERE o.ORDER_ID = ?`;
 
     db.query(sql, [orderId, orderId], (err) => {
         if (err) console.error("更新訂單總額失敗:", err);
@@ -469,6 +472,7 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
             o.NOTE AS ORDER_NOTE, 
             o.SEND AS ORDER_SEND,
             o.settle,
+            o.DISCOUNT, -- 重要：新增此欄位
             od.DETAIL_ID, 
             od.QUANTITY, 
             od.SEND AS ITEM_SEND,
@@ -477,9 +481,7 @@ app.get('/REVENUE_DETAILS_BY_DATE', (req, res) => {
             i.Type, 
             s.SEAT_NAME
         FROM \`ORDER\` o
-        -- 改用 LEFT JOIN，確保沒有細項的訂單也能被撈出
         LEFT JOIN ORDER_DETAIL od ON o.ORDER_ID = od.ORDER_ID
-        -- i 和 s 通常也建議用 LEFT JOIN 或保持 JOIN (取決於你的資料完整性)
         LEFT JOIN ITEM i ON od.ITEM_ID = i.ITEM_ID
         JOIN SEAT s ON o.SEAT_ID = s.SEAT_ID
         WHERE DATE(o.ORDER_DATE) = ?
@@ -539,9 +541,10 @@ app.post('/PLACE_ORDER', (req, res) => {
                     }
 
                     // 3. 自動更新該訂單的總金額 (ORDER_MOUNT)
-                    const updateMountSql = `
-                        UPDATE \`ORDER\` 
-                        SET ORDER_MOUNT = (SELECT SUM(PRICE_AT_SALE * QUANTITY) FROM ORDER_DETAIL WHERE ORDER_ID = ?) 
+                    // 在 PLACE_ORDER 內更新 ORDER_MOUNT 的 SQL
+                    const updateMountSql = 
+                        `UPDATE \`ORDER\` 
+                        SET ORDER_MOUNT = (SELECT SUM(PRICE_AT_SALE * QUANTITY) FROM ORDER_DETAIL WHERE ORDER_ID = ?) - DISCOUNT 
                         WHERE ORDER_ID = ?`;
 
                     connection.query(updateMountSql, [newOrderId, newOrderId], (err) => {
