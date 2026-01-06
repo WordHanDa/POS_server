@@ -366,7 +366,33 @@ app.post('/ORDER_DETAIL', (req, res) => {
         res.status(201).json({ message: '明細已新增', DETAIL_ID: results.insertId });
     });
 });
+// Add this to your app.js
+app.put('/ORDER_DETAIL/:id', (req, res) => {
+    const { id } = req.params;
+    const { saleInPercent } = req.body;
 
+    // 1. Update the specific line item's discount
+    const sql = "UPDATE ORDER_DETAIL SET SALE_IN_PERCENT = ? WHERE DETAIL_ID = ?";
+    
+    db.query(sql, [saleInPercent, id], (err, results) => {
+        if (err) return res.status(500).json({ error: err });
+        if (results.affectedRows === 0) return res.status(404).json({ message: 'Detail not found' });
+
+        // 2. Fetch the associated orderId so we can update the main order total
+        db.query("SELECT ORDER_ID FROM ORDER_DETAIL WHERE DETAIL_ID = ?", [id], (err, results) => {
+            if (results && results.length > 0) {
+                const orderId = results[0].ORDER_ID;
+                
+                // 3. Recalculate the main ORDER_MOUNT
+                updateOrderTotal(orderId);
+                
+                res.json({ message: 'Discount updated and total recalculated' });
+            } else {
+                res.status(404).json({ message: 'Order reference not found' });
+            }
+        });
+    });
+});
 // 修改刪除明細 API
 app.delete('/ORDER_DETAIL/:id', (req, res) => {
     const { id } = req.params;
