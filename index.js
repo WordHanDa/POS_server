@@ -333,14 +333,15 @@ app.delete('/ORDER/:id', (req, res) => {
 
 // 輔助函式：更新訂單總額
 const updateOrderTotal = (orderId) => {
-    // 邏輯：先從明細算出小計，再減去該訂單原本設定的折扣
+    // 使用 COALESCE 確保 DISCOUNT 若為 NULL 則視為 0
+    // 小計部分也使用 COALESCE 確保沒有明細時為 0
     const sql = `
         UPDATE \`ORDER\` o
         SET o.ORDER_MOUNT = (
             SELECT COALESCE(SUM(od.PRICE_AT_SALE * od.QUANTITY * (od.SALE_IN_PERCENT / 100)), 0)
             FROM ORDER_DETAIL od
             WHERE od.ORDER_ID = ?
-        ) - o.DISCOUNT
+        ) - COALESCE(o.DISCOUNT, 0)
         WHERE o.ORDER_ID = ?`;
 
     db.query(sql, [orderId, orderId], (err) => {
@@ -542,9 +543,14 @@ app.post('/PLACE_ORDER', (req, res) => {
 
                     // 3. 自動更新該訂單的總金額 (ORDER_MOUNT)
                     // 在 PLACE_ORDER 內更新 ORDER_MOUNT 的 SQL
-                    const updateMountSql = 
-                        `UPDATE \`ORDER\` 
-                        SET ORDER_MOUNT = (SELECT SUM(PRICE_AT_SALE * QUANTITY) FROM ORDER_DETAIL WHERE ORDER_ID = ?) - DISCOUNT 
+                    // 在 PLACE_ORDER 事務內的 updateMountSql 修改如下：
+                    const updateMountSql = `
+                        UPDATE \`ORDER\` 
+                        SET ORDER_MOUNT = (
+                        SELECT COALESCE(SUM(PRICE_AT_SALE * QUANTITY), 0) 
+                        FROM ORDER_DETAIL 
+                        WHERE ORDER_ID = ?
+                        ) - COALESCE(DISCOUNT, 0) 
                         WHERE ORDER_ID = ?`;
 
                     connection.query(updateMountSql, [newOrderId, newOrderId], (err) => {
