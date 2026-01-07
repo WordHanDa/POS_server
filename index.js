@@ -670,6 +670,30 @@ app.get('/ITEM_GROUPED', (req, res) => {
     });
 });
 
+// 取得特定座位尚未結帳的訂單與明細
+app.get('/ACTIVE_ORDERS_BY_SEAT/:seatId', (req, res) => {
+    const { seatId } = req.params;
+    const sql = `
+        SELECT 
+            o.ORDER_ID, 
+            o.ORDER_DATE, 
+            od.QUANTITY, 
+            i.ITEM_NAME, 
+            od.PRICE_AT_SALE,
+            od.NOTE as ITEM_NOTE
+        FROM \`ORDER\` o
+        JOIN ORDER_DETAIL od ON o.ORDER_ID = od.ORDER_ID
+        JOIN ITEM i ON od.ITEM_ID = i.ITEM_ID
+        WHERE o.SEAT_ID = ? AND o.settle = 0
+        ORDER BY o.ORDER_DATE DESC
+    `;
+
+    db.query(sql, [seatId], (err, results) => {
+        if (err) return res.status(500).json({ error: err });
+        res.json(results);
+    });
+});
+
 if (require.main === module) {
     app.listen(3002, () => {
         console.log('OK, server is running on port 3002');
