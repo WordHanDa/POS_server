@@ -31,17 +31,19 @@ db.getConnection((err, connection) => {
 });
 app.use(cors({
     origin: function (origin, callback) {
-        // 允許沒有 origin 的請求（例如 Postman 或 curl）
+        // 允許 Postman 或 curl 等沒有 origin 的請求
         if (!origin) return callback(null, true);
-        if (AllowOrigin.indexOf(origin) === -1) {
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
+        
+        // 允許所有來源，或者檢查白名單
+        // 如果您想完全開放，可以直接使用 origin: '*'
+        if (AllowOrigin.includes('*') || AllowOrigin.includes(origin)) {
+            return callback(null, true);
+        } else {
+            return callback(new Error('Not allowed by CORS'));
         }
-        return callback(null, true);
-        credentials: true
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true, // 如果你有用到 Cookie 或 Authorization Header
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    credentials: true, // 放在這裡才是正確的
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 // 1. Get all items
