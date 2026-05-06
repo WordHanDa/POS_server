@@ -49,20 +49,6 @@ app.use(cors({
 }));
 // 1. Get all items
 app.get('/ITEM', (req, res) => {
-    const { is_active } = req.query;
-
-    if (is_active !== undefined) {
-        const parsedActive = Number(is_active);
-        db.query("SELECT * FROM `ITEM` WHERE is_active = ?", [parsedActive], (err, results) => {
-            if (err) {
-                res.status(500).json({ error: err });
-            } else {
-                res.json(results);
-            }
-        });
-        return;
-    }
-
     db.query("SELECT * FROM `ITEM`", (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
@@ -96,13 +82,13 @@ app.get('/ITEM/:id', (req, res) => {
     });
 });
 
-// 3. Create a new item (已新增 Picture_URL、Type 與 is_active)
+// 3. Create a new item (已新增 Picture_URL 與 Type)
 app.post('/ITEM', (req, res) => {
-    const { name, price, description, pictureUrl, type, is_active } = req.body;
-    const activeValue = is_active !== undefined ? Number(is_active) : 1;
-    const sql = "INSERT INTO `ITEM` (ITEM_NAME, ITEM_PRICE, Description, PICTURE_URL, Type, is_active) VALUES (?, ?, ?, ?, ?, ?)";
+    // 從 body 解析新欄位
+    const { name, price, description, pictureUrl, type } = req.body;
+    const sql = "INSERT INTO `ITEM` (ITEM_NAME, ITEM_PRICE, Description, PICTURE_URL, Type) VALUES (?, ?, ?, ?, ?)";
 
-    db.query(sql, [name, price, description, pictureUrl, type, activeValue], (err, results) => {
+    db.query(sql, [name, price, description, pictureUrl, type], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
@@ -111,14 +97,13 @@ app.post('/ITEM', (req, res) => {
     });
 });
 
-// 4. Update an item by ID (已新增 Picture_URL、Type 與 is_active)
+// 4. Update an item by ID (已新增 Picture_URL 與 Type)
 app.put('/ITEM/:id', (req, res) => {
     const { id } = req.params;
-    const { name, price, description, pictureUrl, type, is_active } = req.body;
-    const activeValue = is_active !== undefined ? Number(is_active) : 1;
-    const sql = "UPDATE `ITEM` SET ITEM_NAME = ?, ITEM_PRICE = ?, Description = ?, PICTURE_URL = ?, Type = ?, is_active = ? WHERE ITEM_ID = ?";
+    const { name, price, description, pictureUrl, type } = req.body;
+    const sql = "UPDATE `ITEM` SET ITEM_NAME = ?, ITEM_PRICE = ?, Description = ?, PICTURE_URL = ?, Type = ? WHERE ITEM_ID = ?";
 
-    db.query(sql, [name, price, description, pictureUrl, type, activeValue, id], (err, results) => {
+    db.query(sql, [name, price, description, pictureUrl, type, id], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else if (results.affectedRows === 0) {
@@ -129,28 +114,7 @@ app.put('/ITEM/:id', (req, res) => {
     });
 });
 
-// 5. Toggle item active state
-app.patch('/ITEM/:id/active', (req, res) => {
-    const { id } = req.params;
-    const { is_active } = req.body;
-
-    if (is_active === undefined) {
-        return res.status(400).json({ message: 'Missing is_active value' });
-    }
-
-    const activeValue = Number(is_active);
-    db.query("UPDATE `ITEM` SET is_active = ? WHERE ITEM_ID = ?", [activeValue, id], (err, results) => {
-        if (err) {
-            res.status(500).json({ error: err });
-        } else if (results.affectedRows === 0) {
-            res.status(404).json({ message: 'Item not found' });
-        } else {
-            res.json({ message: 'Item active state updated' });
-        }
-    });
-});
-
-// 6. Delete an item by ID
+// 5. Delete an item by ID
 app.delete('/ITEM/:id', (req, res) => {
     const { id } = req.params;
     db.query("DELETE FROM `ITEM` WHERE ITEM_ID = ?", [id], (err, results) => {
