@@ -6,25 +6,13 @@ app.use(express.json());
 app.use(cors());
 require('dotenv').config();
 
-const corsOptions = {
-    origin: function (origin, callback) {
-        const AllowOrigin = [
-            'https://pos-manage.vercel.app',
-            'https://posfront-psi.vercel.app',
-            'http://localhost:3000',
-            'http://localhost:5173'
-        ];
-        // 允許 Postman/Curl 等沒有 Origin 的請求
-        if (!origin || AllowOrigin.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-};
+const AllowOrigin = [
+    'https://pos-manage.vercel.app',
+    'https://posfront-psi.vercel.app',
+    'https://pos-manage-git-develope-ys-chens-projects.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+];
 
 const db = mysql.createPool({
     host: process.env.dbhost,
@@ -779,9 +767,6 @@ app.delete('/EVENT', (req, res) => {
         res.json({ message: "刪除成功" });
     });
 });
-
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 if (require.main === module) {
     app.listen(3002, () => {
