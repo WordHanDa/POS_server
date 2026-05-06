@@ -49,7 +49,16 @@ app.use(cors({
 }));
 // 1. Get all items
 app.get('/ITEM', (req, res) => {
-    db.query("SELECT * FROM `ITEM`", (err, results) => {
+    const { isActive } = req.query;
+    let sql = "SELECT * FROM `ITEM`";
+    const params = [];
+
+    if (typeof isActive !== 'undefined') {
+        sql += " WHERE is_active = ?";
+        params.push(isActive === '1' || isActive === 1 || isActive === true || isActive === 'true' ? 1 : 0);
+    }
+
+    db.query(sql, params, (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
@@ -57,15 +66,28 @@ app.get('/ITEM', (req, res) => {
         }
     });
 });
+
 app.get('/ITEM_BY_TYPE', (req, res) => {
-    const { type } = req.query; // 從查詢參數獲取 type，例如 /ITEM?type=aaa
-    db.query("SELECT * FROM `ITEM` WHERE Type = ?", [type], (err, results) => {
+    const { type, isActive } = req.query;
+    if (!type) {
+        return res.status(400).json({ message: 'Type is required' });
+    }
+
+    let sql = "SELECT * FROM `ITEM` WHERE Type = ?";
+    const params = [type];
+
+    if (typeof isActive !== 'undefined') {
+        sql += " AND is_active = ?";
+        params.push(isActive === '1' || isActive === 1 || isActive === true || isActive === 'true' ? 1 : 0);
+    }
+
+    db.query(sql, params, (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
             res.json(results);
         }
-    })
+    });
 });
 
 // 2. Get a specific item by ID
@@ -82,13 +104,13 @@ app.get('/ITEM/:id', (req, res) => {
     });
 });
 
-// 3. Create a new item (已新增 Picture_URL 與 Type)
+// 3. Create a new item (已新增 Picture_URL、Type 與 is_active)
 app.post('/ITEM', (req, res) => {
-    // 從 body 解析新欄位
-    const { name, price, description, pictureUrl, type } = req.body;
-    const sql = "INSERT INTO `ITEM` (ITEM_NAME, ITEM_PRICE, Description, PICTURE_URL, Type) VALUES (?, ?, ?, ?, ?)";
+    const { name, price, description, pictureUrl, type, isActive } = req.body;
+    const activeValue = typeof isActive !== 'undefined' ? (isActive === 1 || isActive === '1' || isActive === true || isActive === 'true' ? 1 : 0) : 1;
+    const sql = "INSERT INTO `ITEM` (ITEM_NAME, ITEM_PRICE, Description, PICTURE_URL, Type, is_active) VALUES (?, ?, ?, ?, ?, ?)";
 
-    db.query(sql, [name, price, description, pictureUrl, type], (err, results) => {
+    db.query(sql, [name, price, description, pictureUrl, type, activeValue], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
@@ -97,19 +119,75 @@ app.post('/ITEM', (req, res) => {
     });
 });
 
-// 4. Update an item by ID (已新增 Picture_URL 與 Type)
+// 4. Update an item by ID (已新增 Picture_URL、Type 與 is_active)
 app.put('/ITEM/:id', (req, res) => {
     const { id } = req.params;
-    const { name, price, description, pictureUrl, type } = req.body;
-    const sql = "UPDATE `ITEM` SET ITEM_NAME = ?, ITEM_PRICE = ?, Description = ?, PICTURE_URL = ?, Type = ? WHERE ITEM_ID = ?";
+    const { name, price, description, pictureUrl, type, isActive } = req.body;
+    const setClauses = [];
+    const params = [];
 
-    db.query(sql, [name, price, description, pictureUrl, type, id], (err, results) => {
+    if (typeof name !== 'undefined') {
+        setClauses.push('ITEM_NAME = ?');
+        params.push(name);
+    }
+    if (typeof price !== 'undefined') {
+        setClauses.push('ITEM_PRICE = ?');
+        params.push(price);
+    }
+    if (typeof description !== 'undefined') {
+        setClauses.push('Description = ?');
+        params.push(description);
+    }
+    if (typeof pictureUrl !== 'undefined') {
+        setClauses.push('PICTURE_URL = ?');
+        params.push(pictureUrl);
+    }
+    if (typeof type !== 'undefined') {
+        setClauses.push('Type = ?');
+        params.push(type);
+    }
+    if (typeof isActive !== 'undefined') {
+        setClauses.push('is_active = ?');
+        params.push(isActive === 1 || isActive === '1' || isActive === true || isActive === 'true' ? 1 : 0);
+    }
+
+    if (setClauses.length === 0) {
+        return res.status(400).json({ message: 'No item fields provided for update' });
+    }
+
+    const sql = `UPDATE \`ITEM\` SET ${setClauses.join(', ')} WHERE ITEM_ID = ?`;
+    params.push(id);
+
+    db.query(sql, params, (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else if (results.affectedRows === 0) {
             res.status(404).json({ message: 'Item not found' });
         } else {
             res.json({ message: 'Item updated' });
+        }
+    });
+});
+
+// 4.1 Update item active status only
+app.patch('/ITEM/:id/active', (req, res) => {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    if (typeof isActive === 'undefined') {
+        return res.status(400).json({ message: 'isActive is required' });
+    }
+
+    const activeValue = isActive === 1 || isActive === '1' || isActive === true || isActive === 'true' ? 1 : 0;
+    const sql = "UPDATE `ITEM` SET is_active = ? WHERE ITEM_ID = ?";
+
+    db.query(sql, [activeValue, id], (err, results) => {
+        if (err) {
+            res.status(500).json({ error: err });
+        } else if (results.affectedRows === 0) {
+            res.status(404).json({ message: 'Item not found' });
+        } else {
+            res.json({ message: 'Item active status updated', is_active: activeValue });
         }
     });
 });
