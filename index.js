@@ -780,6 +780,9 @@ app.delete('/EVENT', (req, res) => {
     });
 });
 
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
+
 if (require.main === module) {
     app.listen(3002, () => {
         console.log('OK, server is running on port 3002');
