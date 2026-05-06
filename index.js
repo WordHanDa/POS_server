@@ -49,7 +49,11 @@ app.use(cors({
 }));
 // 1. Get all items
 app.get('/ITEM', (req, res) => {
-    db.query("SELECT * FROM `ITEM`", (err, results) => {
+    const { is_active } = req.query;
+    const sql = is_active === undefined ? "SELECT * FROM `ITEM`" : "SELECT * FROM `ITEM` WHERE is_active = ?";
+    const params = is_active === undefined ? [] : [Number(is_active)];
+
+    db.query(sql, params, (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
@@ -85,10 +89,11 @@ app.get('/ITEM/:id', (req, res) => {
 // 3. Create a new item (已新增 Picture_URL 與 Type)
 app.post('/ITEM', (req, res) => {
     // 從 body 解析新欄位
-    const { name, price, description, pictureUrl, type } = req.body;
-    const sql = "INSERT INTO `ITEM` (ITEM_NAME, ITEM_PRICE, Description, PICTURE_URL, Type) VALUES (?, ?, ?, ?, ?)";
+    const { name, price, description, pictureUrl, type, is_active } = req.body;
+    const sql = "INSERT INTO `ITEM` (ITEM_NAME, ITEM_PRICE, Description, PICTURE_URL, Type, is_active) VALUES (?, ?, ?, ?, ?, ?)";
+    const activeValue = is_active === undefined ? 1 : (is_active ? 1 : 0);
 
-    db.query(sql, [name, price, description, pictureUrl, type], (err, results) => {
+    db.query(sql, [name, price, description, pictureUrl, type, activeValue], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else {
@@ -100,16 +105,39 @@ app.post('/ITEM', (req, res) => {
 // 4. Update an item by ID (已新增 Picture_URL 與 Type)
 app.put('/ITEM/:id', (req, res) => {
     const { id } = req.params;
-    const { name, price, description, pictureUrl, type } = req.body;
-    const sql = "UPDATE `ITEM` SET ITEM_NAME = ?, ITEM_PRICE = ?, Description = ?, PICTURE_URL = ?, Type = ? WHERE ITEM_ID = ?";
+    const { name, price, description, pictureUrl, type, is_active } = req.body;
+    const sql = "UPDATE `ITEM` SET ITEM_NAME = ?, ITEM_PRICE = ?, Description = ?, PICTURE_URL = ?, Type = ?, is_active = ? WHERE ITEM_ID = ?";
+    const activeValue = is_active === undefined ? 1 : (is_active ? 1 : 0);
 
-    db.query(sql, [name, price, description, pictureUrl, type, id], (err, results) => {
+    db.query(sql, [name, price, description, pictureUrl, type, activeValue, id], (err, results) => {
         if (err) {
             res.status(500).json({ error: err });
         } else if (results.affectedRows === 0) {
             res.status(404).json({ message: 'Item not found' });
         } else {
             res.json({ message: 'Item updated' });
+        }
+    });
+});
+
+// 4a. Update item active status by ID
+app.patch('/ITEM/:id/active', (req, res) => {
+    const { id } = req.params;
+    const { is_active } = req.body;
+    if (is_active === undefined) {
+        return res.status(400).json({ message: 'is_active is required' });
+    }
+
+    const activeValue = is_active ? 1 : 0;
+    const sql = "UPDATE `ITEM` SET is_active = ? WHERE ITEM_ID = ?";
+
+    db.query(sql, [activeValue, id], (err, results) => {
+        if (err) {
+            res.status(500).json({ error: err });
+        } else if (results.affectedRows === 0) {
+            res.status(404).json({ message: 'Item not found' });
+        } else {
+            res.json({ message: 'Item active status updated' });
         }
     });
 });
