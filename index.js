@@ -723,6 +723,25 @@ app.get('/ACTIVE_ORDERS_BY_SEAT/:seatId', (req, res) => {
     });
 });
 
+app.get('/EVENT', (req, res) => {
+    // 假設前端傳入 date 參數來篩選特定日期的活動
+    const { date } = req.query;
+
+    const sql = !date 
+        ? "SELECT * FROM `EVENT` ORDER BY EVENT_START_DATE DESC" 
+        : "SELECT * FROM `EVENT` WHERE EVENT_START_DATE = ?";
+    
+    const params = date ? [date] : [];
+
+    db.query(sql, params, (err, results) => {
+        if (err) {
+            console.error("Database error:", err); // 在伺服器端記錄錯誤
+            return res.status(500).json({ error: "無法取得活動資料" });
+        }
+        res.json(results);
+    });
+});
+
 if (require.main === module) {
     app.listen(3002, () => {
         console.log('OK, server is running on port 3002');
