@@ -12,7 +12,7 @@ const AllowOrigin = [
     'https://pos-manage-git-develope-ys-chens-projects.vercel.app',
     'https://posfront-git-develope-ys-chens-projects.vercel.app',
     'http://localhost:3000',
-    'http://localhost:5173',
+    'http://localhost:5173'
 ];
 
 const db = mysql.createPool({
