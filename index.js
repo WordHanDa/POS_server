@@ -722,23 +722,48 @@ app.get('/ACTIVE_ORDERS_BY_SEAT/:seatId', (req, res) => {
         res.json(results);
     });
 });
-
+// 1. 讀取 (Read) - 獲取所有事件或根據 ID 搜尋
 app.get('/EVENT', (req, res) => {
-    // 假設前端傳入 date 參數來篩選特定日期的活動
-    const { date } = req.query;
-
-    const sql = !date 
-        ? "SELECT * FROM `EVENT` ORDER BY EVENT_START_DATE DESC" 
-        : "SELECT * FROM `EVENT` WHERE EVENT_START_DATE = ?";
-    
-    const params = date ? [date] : [];
+    const { id } = req.query;
+    const sql = id ? "SELECT * FROM `EVENT` WHERE EVENT_ID = ?" : "SELECT * FROM `EVENT`";
+    const params = id ? [id] : [];
 
     db.query(sql, params, (err, results) => {
-        if (err) {
-            console.error("Database error:", err); // 在伺服器端記錄錯誤
-            return res.status(500).json({ error: "無法取得活動資料" });
-        }
+        if (err) return res.status(500).json({ error: err.message });
         res.json(results);
+    });
+});
+
+// 2. 新增 (Create)
+app.post('/EVENT', (req, res) => {
+    const { EVENT_START_DATE, EVENT_END_DATE, EVENT_CONTANT, EVENT_NOTE } = req.body;
+    const sql = "INSERT INTO `EVENT` (EVENT_START_DATE, EVENT_END_DATE, EVENT_CONTANT, EVENT_NOTE) VALUES (?, ?, ?, ?)";
+    
+    db.query(sql, [EVENT_START_DATE, EVENT_END_DATE, EVENT_CONTANT, EVENT_NOTE], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "新增成功", id: result.insertId });
+    });
+});
+
+// 3. 更新 (Update)
+app.put('/EVENT', (req, res) => {
+    const { EVENT_ID, EVENT_START_DATE, EVENT_END_DATE, EVENT_CONTANT, EVENT_NOTE } = req.body;
+    const sql = "UPDATE `EVENT` SET EVENT_START_DATE = ?, EVENT_END_DATE = ?, EVENT_CONTANT = ?, EVENT_NOTE = ? WHERE EVENT_ID = ?";
+    
+    db.query(sql, [EVENT_START_DATE, EVENT_END_DATE, EVENT_CONTANT, EVENT_NOTE, EVENT_ID], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "更新成功" });
+    });
+});
+
+// 4. 刪除 (Delete)
+app.delete('/EVENT', (req, res) => {
+    const { EVENT_ID } = req.body;
+    const sql = "DELETE FROM `EVENT` WHERE EVENT_ID = ?";
+    
+    db.query(sql, [EVENT_ID], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: "刪除成功" });
     });
 });
 
