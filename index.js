@@ -673,6 +673,7 @@ app.get('/ITEM_GROUPED', (req, res) => {
             // 5. 插入變體數據
             grouped[baseName].variants.push({
                 item_id: item.ITEM_ID,
+                is_active: item.is_active,
                 price: item.ITEM_PRICE,
                 size: sizeLabel,
                 original_name: item.ITEM_NAME
@@ -682,7 +683,7 @@ app.get('/ITEM_GROUPED', (req, res) => {
         // 6. 排序補償邏輯：確保同一字卡內的價格由低到高，並自動標註缺失的 size
         const finalData = Object.values(grouped).map(group => {
             // 按價格排序
-            group.variants.sort((a, b) => a.price - b.price);
+            group.variants = group.variants.filter(v => v.is_active).sort((a, b) => a.price - b.price);
 
             group.variants = group.variants.map((v, idx) => {
                 // 如果 Regex 沒抓到容量標籤，則便宜的預設 15ml，貴的預設 30ml
@@ -692,7 +693,7 @@ app.get('/ITEM_GROUPED', (req, res) => {
                 return v;
             });
             return group;
-        });
+        }).filter(group => group.variants.length > 0);
 
         res.json(finalData);
     });
