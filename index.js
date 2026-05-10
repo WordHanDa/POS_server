@@ -49,7 +49,12 @@ app.use(cors({
 // 1. Get all items
 app.get('/ITEM', (req, res) => {
     const { is_active } = req.query;
-    const sql = is_active === undefined ? "SELECT * FROM `ITEM`" : "SELECT * FROM `ITEM` WHERE is_active = ?";
+    
+    // 新增：在 SQL 語法的最後面加上 ORDER BY ITEM_ID ASC (由舊到新排序)
+    const sql = is_active === undefined 
+        ? "SELECT * FROM `ITEM` ORDER BY ITEM_ID ASC" 
+        : "SELECT * FROM `ITEM` WHERE is_active = ? ORDER BY ITEM_ID ASC";
+        
     const params = is_active === undefined ? [] : [Number(is_active)];
 
     db.query(sql, params, (err, results) => {
