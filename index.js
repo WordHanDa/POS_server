@@ -49,12 +49,7 @@ app.use(cors({
 // 1. Get all items
 app.get('/ITEM', (req, res) => {
     const { is_active } = req.query;
-    
-    // 新增：在 SQL 語法的最後面加上 ORDER BY ITEM_ID ASC (由舊到新排序)
-    const sql = is_active === undefined 
-        ? "SELECT * FROM `ITEM` ORDER BY ITEM_ID ASC" 
-        : "SELECT * FROM `ITEM` WHERE is_active = ? ORDER BY ITEM_ID ASC";
-        
+    const sql = is_active === undefined ? "SELECT * FROM `ITEM`" : "SELECT * FROM `ITEM` WHERE is_active = ?";
     const params = is_active === undefined ? [] : [Number(is_active)];
 
     db.query(sql, params, (err, results) => {
@@ -65,12 +60,13 @@ app.get('/ITEM', (req, res) => {
         }
     });
 });
+
 app.get('/ITEM_BY_TYPE', (req, res) => {
     const { type } = req.query; 
     const limit = parseInt(req.query.limit) || 20; // 預設每次載入 20 筆
     const cursor = parseInt(req.query.cursor);     // 接收前端傳來最後一筆的 ITEM_ID
 
-    // 1. 只撈取需要的欄位 (不撈 Description 以節省效能)，並只撈上架商品 (is_active = 1)
+    // 1. 只撈取需要的欄位 (包含 Description)，並只撈上架商品 (is_active = 1)
     let sql = `
         SELECT ITEM_ID, ITEM_NAME, ITEM_PRICE, PICTURE_URL, Description 
         FROM \`ITEM\` 
@@ -78,14 +74,14 @@ app.get('/ITEM_BY_TYPE', (req, res) => {
     `;
     const params = [type];
 
-    // 2. 游標邏輯：如果前端有傳 cursor，代表正在往下捲動，撈取更舊 (ID更小) 的資料
+    // 2. 游標邏輯：因為是 ASC 排序，下一頁要撈取 ID「大於」當前游標的資料
     if (cursor) {
-        sql += " AND ITEM_ID < ?"; 
+        sql += " AND ITEM_ID > ?"; 
         params.push(cursor);
     }
 
-    // 3. 加入排序與限制筆數
-    sql += " ORDER BY ITEM_ID DESC LIMIT ?";
+    // 3. 加入排序與限制筆數：改為 ASC (由舊到新、由小到大排序)
+    sql += " ORDER BY ITEM_ID ASC LIMIT ?";
     params.push(limit);
 
     db.query(sql, params, (err, results) => {
