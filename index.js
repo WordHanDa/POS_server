@@ -67,7 +67,7 @@ app.get('/ITEM_BY_TYPE', (req, res) => {
 
     // 1. 只撈取需要的欄位 (不撈 Description 以節省效能)，並只撈上架商品 (is_active = 1)
     let sql = `
-        SELECT ITEM_ID, ITEM_NAME, ITEM_PRICE, PICTURE_URL 
+        SELECT ITEM_ID, ITEM_NAME, ITEM_PRICE, PICTURE_URL, Description 
         FROM \`ITEM\` 
         WHERE Type = ? AND is_active = 1
     `;
