@@ -61,14 +61,45 @@ app.get('/ITEM', (req, res) => {
     });
 });
 app.get('/ITEM_BY_TYPE', (req, res) => {
-    const { type } = req.query; // 從查詢參數獲取 type，例如 /ITEM?type=aaa
-    db.query("SELECT * FROM `ITEM` WHERE Type = ?", [type], (err, results) => {
+    const { type } = req.query; 
+    const limit = parseInt(req.query.limit) || 20; // 預設每次載入 20 筆
+    const cursor = parseInt(req.query.cursor);     // 接收前端傳來最後一筆的 ITEM_ID
+
+    // 1. 只撈取需要的欄位 (不撈 Description 以節省效能)，並只撈上架商品 (is_active = 1)
+    let sql = `
+        SELECT ITEM_ID, ITEM_NAME, ITEM_PRICE, PICTURE_URL 
+        FROM \`ITEM\` 
+        WHERE Type = ? AND is_active = 1
+    `;
+    const params = [type];
+
+    // 2. 游標邏輯：如果前端有傳 cursor，代表正在往下捲動，撈取更舊 (ID更小) 的資料
+    if (cursor) {
+        sql += " AND ITEM_ID < ?"; 
+        params.push(cursor);
+    }
+
+    // 3. 加入排序與限制筆數
+    sql += " ORDER BY ITEM_ID DESC LIMIT ?";
+    params.push(limit);
+
+    db.query(sql, params, (err, results) => {
         if (err) {
-            res.status(500).json({ error: err });
-        } else {
-            res.json(results);
+            return res.status(500).json({ error: err.message });
         }
-    })
+        
+        let nextCursor = null;
+        if (results.length > 0) {
+            // 取得這批資料最後一個 ID 作為下一頁的起點
+            nextCursor = results[results.length - 1].ITEM_ID;
+        }
+
+        // 回傳格式改為包含 data 陣列與 nextCursor
+        res.json({
+            data: results,
+            nextCursor: results.length === limit ? nextCursor : null 
+        });
+    });
 });
 
 // 2. Get a specific item by ID
