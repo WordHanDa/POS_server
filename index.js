@@ -798,6 +798,38 @@ app.delete('/EVENT', (req, res) => {
     });
 });
 
+// 取得特定日期區間內，每樣商品售出的總數量
+app.get('/GetEachItem', (req, res) => {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+        return res.status(400).json({ error: "請提供開始日期 (startDate) 與結束日期 (endDate)" });
+    }
+
+    const sql = `
+        SELECT 
+            i.ITEM_ID, 
+            i.ITEM_NAME, 
+            SUM(od.QUANTITY) AS TOTAL_QUANTITY,
+            i.Type
+        FROM \`ORDER\` o
+        JOIN ORDER_DETAIL od ON o.ORDER_ID = od.ORDER_ID
+        JOIN ITEM i ON od.ITEM_ID = i.ITEM_ID
+        WHERE DATE(o.ORDER_DATE) BETWEEN ? AND ?
+          AND o.settle = 1
+        GROUP BY i.ITEM_ID, i.ITEM_NAME, i.Type
+        ORDER BY TOTAL_QUANTITY DESC
+    `;
+
+    db.query(sql, [startDate, endDate], (err, results) => {
+        if (err) {
+            console.error("SQL Error:", err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(results);
+    });
+});
+
 if (require.main === module) {
     app.listen(3002, () => {
         console.log('OK, server is running on port 3002');
