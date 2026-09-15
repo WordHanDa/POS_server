@@ -42,6 +42,11 @@ app.use(cors({
     credentials: true, // 放在這裡才是正確的
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+app.get('/ping', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'serverless is running' });
+});
+
 // 1. Get all items
 app.get('/ITEM', (req, res) => {
     const { is_active } = req.query;
