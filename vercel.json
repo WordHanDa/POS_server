@@ -1,8 +1,9 @@
 {
+  "version": 2,
   "rewrites": [
     {
-      "source": "/:path*",
-      "destination": "http://114.32.141.80:3002/:path*"
+      "source": "/(ITEM|EVENT|SEAT|ORDER)(.*)",
+      "destination": "/api/index.js"
     },
     {
       "source": "/(.*)",
