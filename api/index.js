@@ -42,6 +42,10 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'POS Serverless backend is live' });
+});
+
 app.get('/ping', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'serverless is running' });
 });
