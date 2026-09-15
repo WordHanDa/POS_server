@@ -1,5 +1,4 @@
 require('dotenv').config();
-const serverlessExpress = require('@vendia/serverless-express');
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
@@ -837,4 +836,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = serverlessExpress({ app });
+module.exports = app;
