@@ -3,7 +3,7 @@ const serverlessExpress = require('@vendia/serverless-express');
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
-const app = require('./api/index.js');
+const app = express();
 app.use(express.json());
 
 const AllowOrigin = [
