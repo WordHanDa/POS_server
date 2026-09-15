@@ -11,7 +11,7 @@ const mockDb = {
 
 mysql.createPool.mockReturnValue(mockDb);
 
-const app = require('./index');
+const app = require('./api/index');
 
 describe('ITEM API', () => {
     beforeEach(() => {
