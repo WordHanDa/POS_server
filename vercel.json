@@ -1,36 +1,9 @@
 {
+  "version": 2,
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/index.js"
-    },
-    {
-      "source": "/ITEM/(.*)",
-      "destination": "/index.js"
-    },
-    {
-      "source": "/ITEM",
-      "destination": "/index.js"
-    },
-    {
-      "source": "/EVENT/(.*)",
-      "destination": "/index.js"
-    },
-    {
-      "source": "/EVENT",
-      "destination": "/index.js"
-    },
-    {
-      "source": "/SEAT/(.*)",
-      "destination": "/index.js"
-    },
-    {
-      "source": "/SEAT",
-      "destination": "/index.js"
-    },
-    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/api/index.js"
     }
   ]
 }
