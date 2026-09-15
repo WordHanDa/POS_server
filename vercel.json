@@ -2,12 +2,8 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/(ITEM|EVENT|SEAT|ORDER)(.*)",
-      "destination": "/api/index.js"
-    },
-    {
       "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/api/index.js"
     }
   ]
 }

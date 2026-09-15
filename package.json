@@ -17,6 +17,7 @@
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "mysql": "^2.18.1",
+    "mysql2": "^3.24.4",
     "socket.io": "^4.8.3"
   },
   "engines": {

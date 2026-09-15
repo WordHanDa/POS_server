@@ -1,20 +1,20 @@
+require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
-const app = express();
+const app = require('./api/index.js');
 app.use(express.json());
-require('dotenv').config();
 
 const AllowOrigin = [
     '*'
 ];
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || '',
+const db = mysql.createPool({
+  host: process.env.DB_HOST || 'gateway01.ap-northeast-1.prod.aws.tidbcloud.com',
   port: 4000,
-  user: process.env.DB_USER || '',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || '',
+  user: process.env.DB_USER || 'cMJVLuXGFcwJ9m9.root',
+  password: process.env.DB_PASSWORD || 'u1zAfiGHnnqWqOK8',
+  database: process.env.DB_NAME || 'POS_server',
   ssl: {
     rejectUnauthorized: true,
     minVersion: 'TLSv1.2'
@@ -32,6 +32,7 @@ db.getConnection((err, connection) => {
         connection.release();
     }
 });
+
 app.use(cors({
     origin: function (origin, callback) {
         // 允許 Postman 或 curl 等沒有 origin 的請求
